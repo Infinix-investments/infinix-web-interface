@@ -35,6 +35,14 @@ export function Header({ onOpenNewClientModal }: HeaderProps) {
       title: 'Monthly Distribution & Disbursements',
       subtitle: 'Process 15% monthly investor withdrawals and waive non-withdrawal fees',
     },
+    referrals: {
+      title: 'Referral Network & Affiliate Directory',
+      subtitle: 'Track investor introducers, multi-level overrides, and commission claims',
+    },
+    levels: {
+      title: 'Level Section & Network Tier Governance',
+      subtitle: 'Configure commission splits, team AUM thresholds, and syndicator ranks',
+    },
     audit: {
       title: 'Institutional Audit Trail',
       subtitle: 'Immutable record of plan allocations, verifications, and transfers',

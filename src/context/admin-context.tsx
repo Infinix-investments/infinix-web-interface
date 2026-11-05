@@ -6,15 +6,26 @@ import {
   InvestmentPlanConfig,
   WithdrawalRecord,
   AuditLogItem,
+  ReferralRecord,
+  ReferralLevelTier,
 } from '@/types/admin';
 import {
   INITIAL_CLIENTS,
   INITIAL_PLANS,
   INITIAL_WITHDRAWALS,
   INITIAL_AUDIT_LOGS,
+  INITIAL_REFERRALS,
+  INITIAL_REFERRAL_TIERS,
 } from '@/data/initial-data';
 
-export type AdminTab = 'overview' | 'clients' | 'plans' | 'withdrawals' | 'audit';
+export type AdminTab =
+  | 'overview'
+  | 'clients'
+  | 'plans'
+  | 'withdrawals'
+  | 'referrals'
+  | 'levels'
+  | 'audit';
 
 interface AdminContextType {
   activeTab: AdminTab;
@@ -22,6 +33,8 @@ interface AdminContextType {
   clients: ClientProfile[];
   plans: InvestmentPlanConfig[];
   withdrawals: WithdrawalRecord[];
+  referrals: ReferralRecord[];
+  referralTiers: ReferralLevelTier[];
   auditLogs: AuditLogItem[];
   verifyClientPhone: (clientId: string) => { success: boolean; message: string };
   assignPlanToClient: (
@@ -33,6 +46,11 @@ interface AdminContextType {
   revokeClientPlan: (clientId: string) => { success: boolean; message: string };
   approveWithdrawal: (withdrawalId: string) => { success: boolean; message: string };
   rejectWithdrawal: (withdrawalId: string, reason: string) => { success: boolean; message: string };
+  disburseReferralCommission: (referralId: string) => { success: boolean; message: string };
+  updateReferralTier: (
+    level: number,
+    updates: Partial<ReferralLevelTier>
+  ) => { success: boolean; message: string };
   addNewClient: (data: {
     firstName: string;
     lastName: string;
@@ -41,6 +59,7 @@ interface AdminContextType {
     bankAccount: string;
     autoAssign14MPlan?: boolean;
     allocatedAmount?: number;
+    referredByCode?: string;
   }) => { success: boolean; message: string; clientId: string };
   stats: {
     totalAum: number;
@@ -49,6 +68,9 @@ interface AdminContextType {
     pendingWithdrawalCount: number;
     pendingWithdrawalTotal: number;
     monthlyLiabilityTotal: number;
+    totalReferralsCount: number;
+    activeReferralsCount: number;
+    monthlyReferralCommissionTotal: number;
   };
 }
 
@@ -59,6 +81,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [clients, setClients] = useState<ClientProfile[]>(INITIAL_CLIENTS);
   const [plans, setPlans] = useState<InvestmentPlanConfig[]>(INITIAL_PLANS);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>(INITIAL_WITHDRAWALS);
+  const [referrals, setReferrals] = useState<ReferralRecord[]>(INITIAL_REFERRALS);
+  const [referralTiers, setReferralTiers] = useState<ReferralLevelTier[]>(INITIAL_REFERRAL_TIERS);
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>(INITIAL_AUDIT_LOGS);
 
   const addAuditLog = (
@@ -142,6 +166,23 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
             }
           : c
       )
+    );
+
+    // If client was referred by someone, update referral record to active
+    setReferrals((prev) =>
+      prev.map((r) => {
+        if (r.refereeId === clientId) {
+          const comm = (amount * r.commissionRatePct) / 100;
+          return {
+            ...r,
+            status: 'active',
+            capitalAmount: amount,
+            planName: plan.planName,
+            monthlyCommissionAmount: comm,
+          };
+        }
+        return r;
+      })
     );
 
     addAuditLog(
@@ -264,7 +305,58 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     };
   };
 
-  // 6. ADD NEW CLIENT DIRECTLY
+  // 6. DISBURSE REFERRAL COMMISSION
+  const disburseReferralCommission = (referralId: string) => {
+    const ref = referrals.find((r) => r.id === referralId);
+    if (!ref) return { success: false, message: 'Referral record not found.' };
+
+    const utr = `CMS-REF-${Date.now().toString().slice(-7)}`;
+
+    setReferrals((prev) =>
+      prev.map((r) =>
+        r.id === referralId
+          ? {
+              ...r,
+              totalEarnedAmount: r.totalEarnedAmount + r.monthlyCommissionAmount,
+            }
+          : r
+      )
+    );
+
+    addAuditLog(
+      'Referral Incentive Disbursed',
+      'referral_management',
+      `Disbursed monthly referral yield of ₹${ref.monthlyCommissionAmount.toLocaleString('en-IN')} (Level ${ref.level}) to ${ref.referrerName}. UTR: ${utr}.`
+    );
+
+    return {
+      success: true,
+      message: `Referral commission of ₹${ref.monthlyCommissionAmount.toLocaleString('en-IN')} successfully settled to ${ref.referrerName}!`,
+    };
+  };
+
+  // 7. UPDATE REFERRAL LEVEL TIER
+  const updateReferralTier = (
+    level: number,
+    updates: Partial<ReferralLevelTier>
+  ) => {
+    setReferralTiers((prev) =>
+      prev.map((t) => (t.level === level ? { ...t, ...updates } : t))
+    );
+
+    addAuditLog(
+      'Referral Tier Updated',
+      'referral_management',
+      `Updated parameters for Referral Level ${level} (${updates.commissionPct !== undefined ? `Commission: ${updates.commissionPct}%` : ''}).`
+    );
+
+    return {
+      success: true,
+      message: `Referral Level ${level} parameters updated successfully!`,
+    };
+  };
+
+  // 8. ADD NEW CLIENT DIRECTLY
   const addNewClient = (data: {
     firstName: string;
     lastName: string;
@@ -273,10 +365,12 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     bankAccount: string;
     autoAssign14MPlan?: boolean;
     allocatedAmount?: number;
+    referredByCode?: string;
   }) => {
     const newId = `c-${Date.now().toString().slice(-4)}`;
     const today = new Date().toISOString().split('T')[0];
     const amount = data.allocatedAmount || 1000000;
+    const refCode = `INF-${data.firstName.toUpperCase()}${newId.slice(-3)}`;
 
     const newClient: ClientProfile = {
       id: newId,
@@ -299,9 +393,40 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       totalAum: data.autoAssign14MPlan ? amount : 0,
       joinedDate: today,
       notes: 'Manually enrolled by Chief Wealth Admin via Web Desk.',
+      referralCode: refCode,
+      referredByCode: data.referredByCode,
     };
 
     setClients((prev) => [newClient, ...prev]);
+
+    // If referred by a client, create referral record
+    if (data.referredByCode) {
+      const referrer = clients.find((c) => c.referralCode === data.referredByCode);
+      if (referrer) {
+        const comm = data.autoAssign14MPlan ? (amount * 2.0) / 100 : 0;
+        const newRef: ReferralRecord = {
+          id: `ref-${Date.now().toString().slice(-4)}`,
+          referrerId: referrer.id,
+          referrerName: `${referrer.firstName} ${referrer.lastName}`,
+          referrerCode: referrer.referralCode || 'INF-ADMIN',
+          refereeId: newId,
+          refereeName: `${newClient.firstName} ${newClient.lastName}`,
+          refereeEmail: newClient.email,
+          refereePhone: newClient.phone,
+          level: 1,
+          planName: data.autoAssign14MPlan
+            ? 'INFINIX 14-Month Wealth Accelerator'
+            : 'Pending Plan Allocation',
+          capitalAmount: data.autoAssign14MPlan ? amount : 0,
+          commissionRatePct: 2.0,
+          monthlyCommissionAmount: comm,
+          totalEarnedAmount: comm,
+          status: data.autoAssign14MPlan ? 'active' : 'pending_activation',
+          dateJoined: today,
+        };
+        setReferrals((prev) => [newRef, ...prev]);
+      }
+    }
 
     addAuditLog(
       'New Client Onboarded',
@@ -340,6 +465,12 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       .filter((c) => c.assignedPlanStatus === 'active')
       .reduce((acc, c) => acc + ((c.assignedPlanAmount || 0) * 15) / 100, 0);
 
+    const totalReferralsCount = referrals.length;
+    const activeReferralsCount = referrals.filter((r) => r.status === 'active').length;
+    const monthlyReferralCommissionTotal = referrals
+      .filter((r) => r.status === 'active')
+      .reduce((acc, r) => acc + r.monthlyCommissionAmount, 0);
+
     return {
       totalAum,
       activeInvestorsCount,
@@ -347,8 +478,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       pendingWithdrawalCount,
       pendingWithdrawalTotal,
       monthlyLiabilityTotal,
+      totalReferralsCount,
+      activeReferralsCount,
+      monthlyReferralCommissionTotal,
     };
-  }, [clients, withdrawals]);
+  }, [clients, withdrawals, referrals]);
 
   return (
     <AdminContext.Provider
@@ -358,12 +492,16 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         clients,
         plans,
         withdrawals,
+        referrals,
+        referralTiers,
         auditLogs,
         verifyClientPhone,
         assignPlanToClient,
         revokeClientPlan,
         approveWithdrawal,
         rejectWithdrawal,
+        disburseReferralCommission,
+        updateReferralTier,
         addNewClient,
         stats,
       }}
@@ -380,4 +518,3 @@ export function useAdmin() {
   }
   return context;
 }
-
