@@ -1,4 +1,11 @@
-import { ClientProfile, InvestmentPlanConfig, WithdrawalRecord, AuditLogItem } from '@/types/admin';
+import {
+  ClientProfile,
+  InvestmentPlanConfig,
+  WithdrawalRecord,
+  AuditLogItem,
+  ReferralRecord,
+  ReferralLevelTier,
+} from '@/types/admin';
 
 export const INITIAL_PLANS: InvestmentPlanConfig[] = [
   {
@@ -56,6 +63,7 @@ export const INITIAL_CLIENTS: ClientProfile[] = [
     totalAum: 1000000,
     joinedDate: '2026-09-15',
     notes: 'High-net-worth investor. Month 1 payout withdrawn on time; Month 2 due.',
+    referralCode: 'INF-VIKRAM101',
   },
   {
     id: 'c-102',
@@ -77,6 +85,7 @@ export const INITIAL_CLIENTS: ClientProfile[] = [
     totalAum: 2500000,
     joinedDate: '2026-09-01',
     notes: 'Month 2 distribution claimed and transferred via RTGS.',
+    referralCode: 'INF-ANANYA102',
   },
   {
     id: 'c-103',
@@ -98,6 +107,8 @@ export const INITIAL_CLIENTS: ClientProfile[] = [
     totalAum: 5000000,
     joinedDate: '2026-10-10',
     notes: 'First month distribution window open. ₹7,50,000 due for claim.',
+    referralCode: 'INF-KARAN103',
+    referredByCode: 'INF-VIKRAM101',
   },
   {
     id: 'c-104',
@@ -118,6 +129,8 @@ export const INITIAL_CLIENTS: ClientProfile[] = [
     totalAum: 0,
     joinedDate: '2026-11-04',
     notes: 'Signed up via INFINIX Mobile app. Awaiting phone verification from Admin desk.',
+    referralCode: 'INF-ROHIT104',
+    referredByCode: 'INF-VIKRAM101',
   },
   {
     id: 'c-105',
@@ -138,6 +151,8 @@ export const INITIAL_CLIENTS: ClientProfile[] = [
     totalAum: 0,
     joinedDate: '2026-11-05',
     notes: 'Newly enrolled user. Pending phone number authentication and plan assignment.',
+    referralCode: 'INF-SNEHA105',
+    referredByCode: 'INF-ANANYA102',
   },
   {
     id: 'c-106',
@@ -158,6 +173,8 @@ export const INITIAL_CLIENTS: ClientProfile[] = [
     totalAum: 0,
     joinedDate: '2026-11-03',
     notes: 'Phone verified. Needs 14-Month 15% plan assigned by Admin desk.',
+    referralCode: 'INF-ADITYA106',
+    referredByCode: 'INF-KARAN103',
   },
 ];
 
@@ -212,6 +229,138 @@ export const INITIAL_WITHDRAWALS: WithdrawalRecord[] = [
   },
 ];
 
+export const INITIAL_REFERRALS: ReferralRecord[] = [
+  {
+    id: 'ref-301',
+    referrerId: 'c-101',
+    referrerName: 'Vikramaditya Singhania',
+    referrerCode: 'INF-VIKRAM101',
+    refereeId: 'c-103',
+    refereeName: 'Karan Oberoi',
+    refereeEmail: 'karan.oberoi@oberoi-holdings.in',
+    refereePhone: '+91 99302 77114',
+    level: 1,
+    planName: 'INFINIX 14-Month Wealth Accelerator',
+    capitalAmount: 5000000,
+    commissionRatePct: 2.0,
+    monthlyCommissionAmount: 100000, // 2% of 50L
+    totalEarnedAmount: 100000,
+    status: 'active',
+    dateJoined: '2026-10-10',
+  },
+  {
+    id: 'ref-302',
+    referrerId: 'c-101',
+    referrerName: 'Vikramaditya Singhania',
+    referrerCode: 'INF-VIKRAM101',
+    refereeId: 'c-104',
+    refereeName: 'Rohit Mehta',
+    refereeEmail: 'rohit.mehta@fintechventures.co',
+    refereePhone: '+91 98450 12345',
+    level: 1,
+    planName: 'Pending Plan Allocation',
+    capitalAmount: 0,
+    commissionRatePct: 2.0,
+    monthlyCommissionAmount: 0,
+    totalEarnedAmount: 0,
+    status: 'pending_activation',
+    dateJoined: '2026-11-04',
+  },
+  {
+    id: 'ref-303',
+    referrerId: 'c-102',
+    referrerName: 'Ananya Deshmukh',
+    referrerCode: 'INF-ANANYA102',
+    refereeId: 'c-105',
+    refereeName: 'Sneha Kapoor',
+    refereeEmail: 'sneha.kapoor@luxuryliving.in',
+    refereePhone: '+91 97171 99882',
+    level: 1,
+    planName: 'Pending Plan Allocation',
+    capitalAmount: 0,
+    commissionRatePct: 2.0,
+    monthlyCommissionAmount: 0,
+    totalEarnedAmount: 0,
+    status: 'pending_activation',
+    dateJoined: '2026-11-05',
+  },
+  {
+    id: 'ref-304',
+    referrerId: 'c-103',
+    referrerName: 'Karan Oberoi',
+    referrerCode: 'INF-KARAN103',
+    refereeId: 'c-106',
+    refereeName: 'Aditya Verma',
+    refereeEmail: 'aditya.verma@verma-enterprises.com',
+    refereePhone: '+91 98920 66331',
+    level: 1,
+    planName: 'INFINIX 14-Month Wealth Accelerator',
+    capitalAmount: 1000000,
+    commissionRatePct: 2.0,
+    monthlyCommissionAmount: 20000,
+    totalEarnedAmount: 20000,
+    status: 'active',
+    dateJoined: '2026-11-03',
+  },
+  {
+    id: 'ref-305',
+    referrerId: 'c-101',
+    referrerName: 'Vikramaditya Singhania',
+    referrerCode: 'INF-VIKRAM101',
+    refereeId: 'c-106',
+    refereeName: 'Aditya Verma (Indirect via Karan)',
+    refereeEmail: 'aditya.verma@verma-enterprises.com',
+    refereePhone: '+91 98920 66331',
+    level: 2,
+    planName: 'INFINIX 14-Month Wealth Accelerator',
+    capitalAmount: 1000000,
+    commissionRatePct: 1.0,
+    monthlyCommissionAmount: 10000,
+    totalEarnedAmount: 10000,
+    status: 'active',
+    dateJoined: '2026-11-03',
+  },
+];
+
+export const INITIAL_REFERRAL_TIERS: ReferralLevelTier[] = [
+  {
+    level: 1,
+    name: 'Direct Wealth Partner',
+    commissionPct: 2.0,
+    minTeamAum: 500000,
+    minDirectReferrals: 1,
+    description:
+      'Direct Introducer Tier. Earns a 2.0% monthly bonus commission based on capital allocated by directly introduced investors.',
+    totalMembersCount: 3,
+    totalVolumeGenerated: 6000000,
+    status: 'active',
+  },
+  {
+    level: 2,
+    name: 'Senior Wealth Syndicator',
+    commissionPct: 1.0,
+    minTeamAum: 5000000,
+    minDirectReferrals: 3,
+    description:
+      'Secondary Network Tier. Earns a 1.0% monthly override on secondary tier introductions made by direct partners.',
+    totalMembersCount: 1,
+    totalVolumeGenerated: 1000000,
+    status: 'active',
+  },
+  {
+    level: 3,
+    name: 'Institutional Managing Partner',
+    commissionPct: 0.5,
+    minTeamAum: 20000000,
+    minDirectReferrals: 8,
+    description:
+      'Tertiary Institutional Tier. Master override of 0.5% on broad network syndicate tranches exceeding ₹2.0 Cr in cumulative AUM.',
+    totalMembersCount: 0,
+    totalVolumeGenerated: 0,
+    status: 'active',
+  },
+];
+
 export const INITIAL_AUDIT_LOGS: AuditLogItem[] = [
   {
     id: 'log-101',
@@ -246,4 +395,3 @@ export const INITIAL_AUDIT_LOGS: AuditLogItem[] = [
     details: 'Disbursed ₹1,50,000 to Vikramaditya Singhania (HDFC Bank ••••4412, UTR: CMS-NEFT-884192011).',
   },
 ];
-

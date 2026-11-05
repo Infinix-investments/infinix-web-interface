@@ -8,6 +8,8 @@ import { OverviewView } from '@/components/dashboard/overview-view';
 import { ClientsView } from '@/components/clients/clients-view';
 import { PlansView } from '@/components/plans/plans-view';
 import { WithdrawalsView } from '@/components/withdrawals/withdrawals-view';
+import { ReferralsView } from '@/components/referrals/referrals-view';
+import { LevelsView } from '@/components/referrals/levels-view';
 import { AuditView } from '@/components/audit/audit-view';
 import { AssignPlanModal } from '@/components/modals/assign-plan-modal';
 import { NewClientModal } from '@/components/modals/new-client-modal';
@@ -49,6 +51,8 @@ function AdminDeskContent() {
               <PlansView onOpenAssignModal={handleOpenAssignModal} />
             )}
             {activeTab === 'withdrawals' && <WithdrawalsView />}
+            {activeTab === 'referrals' && <ReferralsView />}
+            {activeTab === 'levels' && <LevelsView />}
             {activeTab === 'audit' && <AuditView />}
           </div>
         </main>

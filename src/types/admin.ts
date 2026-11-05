@@ -1,6 +1,7 @@
 export type KYCStatus = 'verified' | 'pending' | 'rejected';
 export type PlanStatus = 'active' | 'pending_assignment' | 'matured' | 'cancelled';
 export type WithdrawalStatus = 'pending_approval' | 'disbursed' | 'rejected';
+export type ReferralStatus = 'pending_activation' | 'active' | 'completed' | 'cancelled';
 
 export interface ClientProfile {
   id: string;
@@ -22,6 +23,8 @@ export interface ClientProfile {
   totalAum: number;
   joinedDate: string;
   notes: string;
+  referralCode?: string;
+  referredByCode?: string;
 }
 
 export interface InvestmentPlanConfig {
@@ -54,12 +57,47 @@ export interface WithdrawalRecord {
   notes?: string;
 }
 
+export interface ReferralRecord {
+  id: string;
+  referrerId: string;
+  referrerName: string;
+  referrerCode: string;
+  refereeId: string;
+  refereeName: string;
+  refereeEmail: string;
+  refereePhone: string;
+  level: number; // Level 1 (Direct), Level 2 (Sub), Level 3 (Institutional)
+  planName: string;
+  capitalAmount: number;
+  commissionRatePct: number; // e.g. 2.0%
+  monthlyCommissionAmount: number;
+  totalEarnedAmount: number;
+  status: ReferralStatus;
+  dateJoined: string;
+}
+
+export interface ReferralLevelTier {
+  level: number;
+  name: string;
+  commissionPct: number;
+  minTeamAum: number;
+  minDirectReferrals: number;
+  description: string;
+  totalMembersCount: number;
+  totalVolumeGenerated: number;
+  status: 'active' | 'inactive';
+}
+
 export interface AuditLogItem {
   id: string;
   timestamp: string;
   adminName: string;
   action: string;
-  category: 'client_verification' | 'plan_assignment' | 'withdrawal_approval' | 'plan_config';
+  category:
+    | 'client_verification'
+    | 'plan_assignment'
+    | 'withdrawal_approval'
+    | 'plan_config'
+    | 'referral_management';
   details: string;
 }
-
