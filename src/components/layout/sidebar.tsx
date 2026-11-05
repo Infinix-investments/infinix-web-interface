@@ -201,11 +201,8 @@ export function Sidebar() {
                   <Gift className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-sm font-semibold leading-tight flex items-center gap-1.5">
+                  <div className="text-sm font-semibold leading-tight">
                     <span>Refer & Earn</span>
-                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                      Multi-Tier
-                    </span>
                   </div>
                   <div className="text-[10px] text-slate-500">
                     Affiliate & Network Tiers
