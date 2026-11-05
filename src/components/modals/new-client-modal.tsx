@@ -203,3 +203,4 @@ export function NewClientModal({ onClose }: NewClientModalProps) {
     </div>
   );
 }
+

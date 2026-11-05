@@ -62,3 +62,4 @@ export interface AuditLogItem {
   category: 'client_verification' | 'plan_assignment' | 'withdrawal_approval' | 'plan_config';
   details: string;
 }
+

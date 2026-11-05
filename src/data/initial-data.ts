@@ -246,3 +246,4 @@ export const INITIAL_AUDIT_LOGS: AuditLogItem[] = [
     details: 'Disbursed ₹1,50,000 to Vikramaditya Singhania (HDFC Bank ••••4412, UTR: CMS-NEFT-884192011).',
   },
 ];
+

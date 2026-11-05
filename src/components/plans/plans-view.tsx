@@ -269,3 +269,4 @@ export function PlansView({ onOpenAssignModal }: PlansViewProps) {
     </div>
   );
 }
+

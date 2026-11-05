@@ -209,3 +209,4 @@ export function AssignPlanModal({ clientId: initialClientId, onClose }: AssignPl
     </div>
   );
 }
+

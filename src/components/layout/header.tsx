@@ -82,3 +82,4 @@ export function Header({ onOpenNewClientModal }: HeaderProps) {
     </header>
   );
 }
+
