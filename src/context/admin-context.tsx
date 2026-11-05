@@ -1,0 +1,383 @@
+'use client';
+
+import React, { createContext, useContext, useMemo, useState } from 'react';
+import {
+  ClientProfile,
+  InvestmentPlanConfig,
+  WithdrawalRecord,
+  AuditLogItem,
+} from '@/types/admin';
+import {
+  INITIAL_CLIENTS,
+  INITIAL_PLANS,
+  INITIAL_WITHDRAWALS,
+  INITIAL_AUDIT_LOGS,
+} from '@/data/initial-data';
+
+export type AdminTab = 'overview' | 'clients' | 'plans' | 'withdrawals' | 'audit';
+
+interface AdminContextType {
+  activeTab: AdminTab;
+  setActiveTab: (tab: AdminTab) => void;
+  clients: ClientProfile[];
+  plans: InvestmentPlanConfig[];
+  withdrawals: WithdrawalRecord[];
+  auditLogs: AuditLogItem[];
+  verifyClientPhone: (clientId: string) => { success: boolean; message: string };
+  assignPlanToClient: (
+    clientId: string,
+    planId: string,
+    amount: number,
+    startDate?: string
+  ) => { success: boolean; message: string };
+  revokeClientPlan: (clientId: string) => { success: boolean; message: string };
+  approveWithdrawal: (withdrawalId: string) => { success: boolean; message: string };
+  rejectWithdrawal: (withdrawalId: string, reason: string) => { success: boolean; message: string };
+  addNewClient: (data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    bankAccount: string;
+    autoAssign14MPlan?: boolean;
+    allocatedAmount?: number;
+  }) => { success: boolean; message: string; clientId: string };
+  stats: {
+    totalAum: number;
+    activeInvestorsCount: number;
+    pendingPhoneCount: number;
+    pendingWithdrawalCount: number;
+    pendingWithdrawalTotal: number;
+    monthlyLiabilityTotal: number;
+  };
+}
+
+const AdminContext = createContext<AdminContextType | undefined>(undefined);
+
+export function AdminProvider({ children }: { children: React.ReactNode }) {
+  const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+  const [clients, setClients] = useState<ClientProfile[]>(INITIAL_CLIENTS);
+  const [plans, setPlans] = useState<InvestmentPlanConfig[]>(INITIAL_PLANS);
+  const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>(INITIAL_WITHDRAWALS);
+  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>(INITIAL_AUDIT_LOGS);
+
+  const addAuditLog = (
+    action: string,
+    category: AuditLogItem['category'],
+    details: string
+  ) => {
+    const newLog: AuditLogItem = {
+      id: `log-${Date.now()}`,
+      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      adminName: 'Chief Wealth Admin (Altaf)',
+      action,
+      category,
+      details,
+    };
+    setAuditLogs((prev) => [newLog, ...prev]);
+  };
+
+  // 1. VERIFY CLIENT PHONE
+  const verifyClientPhone = (clientId: string) => {
+    const client = clients.find((c) => c.id === clientId);
+    if (!client) return { success: false, message: 'Client not found.' };
+
+    setClients((prev) =>
+      prev.map((c) =>
+        c.id === clientId
+          ? {
+              ...c,
+              isPhoneVerified: true,
+              kycStatus: 'verified',
+            }
+          : c
+      )
+    );
+
+    addAuditLog(
+      'Phone OTP Verified',
+      'client_verification',
+      `Manual phone verification authorized for ${client.firstName} ${client.lastName} (${client.phone}). User unlocked for plan assignment.`
+    );
+
+    return {
+      success: true,
+      message: `Phone number for ${client.firstName} ${client.lastName} successfully verified! You may now assign an investment plan.`,
+    };
+  };
+
+  // 2. ASSIGN INVESTMENT PLAN (Defaults to 14-Month 15% Return Accelerator)
+  const assignPlanToClient = (
+    clientId: string,
+    planId: string,
+    amount: number,
+    startDate?: string
+  ) => {
+    const client = clients.find((c) => c.id === clientId);
+    const plan = plans.find((p) => p.id === planId) || plans[0];
+
+    if (!client) return { success: false, message: 'Client not found.' };
+    if (!client.isPhoneVerified) {
+      return {
+        success: false,
+        message: 'Client phone number must be verified before assigning an investment plan.',
+      };
+    }
+
+    const today = startDate || new Date().toISOString().split('T')[0];
+
+    setClients((prev) =>
+      prev.map((c) =>
+        c.id === clientId
+          ? {
+              ...c,
+              assignedPlanId: plan.id,
+              assignedPlanName: plan.planName,
+              assignedPlanAmount: amount,
+              assignedPlanStartDate: today,
+              assignedPlanStatus: 'active',
+              totalAum: amount,
+              currentMonthIndex: 1,
+              currentMonthWithdrawn: false,
+            }
+          : c
+      )
+    );
+
+    addAuditLog(
+      'Investment Plan Assigned',
+      'plan_assignment',
+      `Assigned "${plan.planName}" with ₹${amount.toLocaleString('en-IN')} capital to ${client.firstName} ${client.lastName}. Monthly distribution: 15% (₹${((amount * 15) / 100).toLocaleString('en-IN')}).`
+    );
+
+    return {
+      success: true,
+      message: `"${plan.planName}" allocated to ${client.firstName} ${client.lastName} with ₹${amount.toLocaleString('en-IN')} capital!`,
+    };
+  };
+
+  // 3. REVOKE PLAN
+  const revokeClientPlan = (clientId: string) => {
+    const client = clients.find((c) => c.id === clientId);
+    if (!client) return { success: false, message: 'Client not found.' };
+
+    setClients((prev) =>
+      prev.map((c) =>
+        c.id === clientId
+          ? {
+              ...c,
+              assignedPlanId: null,
+              assignedPlanName: undefined,
+              assignedPlanAmount: undefined,
+              assignedPlanStartDate: undefined,
+              assignedPlanStatus: 'pending_assignment',
+              totalAum: 0,
+            }
+          : c
+      )
+    );
+
+    addAuditLog(
+      'Plan Revoked',
+      'plan_assignment',
+      `Revoked active investment plan from ${client.firstName} ${client.lastName}.`
+    );
+
+    return {
+      success: true,
+      message: `Investment plan revoked for ${client.firstName} ${client.lastName}.`,
+    };
+  };
+
+  // 4. APPROVE MONTHLY WITHDRAWAL
+  const approveWithdrawal = (withdrawalId: string) => {
+    const wd = withdrawals.find((w) => w.id === withdrawalId);
+    if (!wd) return { success: false, message: 'Withdrawal record not found.' };
+
+    const utr = `CMS-${Date.now().toString().slice(-8)}`;
+    const today = new Date().toISOString().split('T')[0];
+
+    setWithdrawals((prev) =>
+      prev.map((w) =>
+        w.id === withdrawalId
+          ? {
+              ...w,
+              status: 'disbursed',
+              disbursedDate: today,
+              utrReference: utr,
+            }
+          : w
+      )
+    );
+
+    // Update client withdrawal status
+    setClients((prev) =>
+      prev.map((c) =>
+        c.id === wd.clientId
+          ? {
+              ...c,
+              currentMonthWithdrawn: true,
+              lastWithdrawalDate: today,
+            }
+          : c
+      )
+    );
+
+    addAuditLog(
+      'Disbursement Approved & Transferred',
+      'withdrawal_approval',
+      `Approved monthly payout of ₹${wd.amount.toLocaleString('en-IN')} for ${wd.clientName} (${wd.bankAccount}). UTR: ${utr}. Non-withdrawal fee waived.`
+    );
+
+    return {
+      success: true,
+      message: `Payout of ₹${wd.amount.toLocaleString('en-IN')} approved and disbursed to ${wd.bankAccount}! UTR: ${utr}`,
+    };
+  };
+
+  // 5. REJECT WITHDRAWAL
+  const rejectWithdrawal = (withdrawalId: string, reason: string) => {
+    const wd = withdrawals.find((w) => w.id === withdrawalId);
+    if (!wd) return { success: false, message: 'Withdrawal record not found.' };
+
+    setWithdrawals((prev) =>
+      prev.map((w) =>
+        w.id === withdrawalId
+          ? {
+              ...w,
+              status: 'rejected',
+              notes: `Rejected: ${reason}`,
+            }
+          : w
+      )
+    );
+
+    addAuditLog(
+      'Disbursement Rejected',
+      'withdrawal_approval',
+      `Rejected withdrawal request #${wd.id} for ${wd.clientName}. Reason: ${reason}`
+    );
+
+    return {
+      success: true,
+      message: `Withdrawal request #${wd.id} marked as rejected.`,
+    };
+  };
+
+  // 6. ADD NEW CLIENT DIRECTLY
+  const addNewClient = (data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    bankAccount: string;
+    autoAssign14MPlan?: boolean;
+    allocatedAmount?: number;
+  }) => {
+    const newId = `c-${Date.now().toString().slice(-4)}`;
+    const today = new Date().toISOString().split('T')[0];
+    const amount = data.allocatedAmount || 1000000;
+
+    const newClient: ClientProfile = {
+      id: newId,
+      firstName: data.firstName.trim(),
+      lastName: data.lastName.trim(),
+      email: data.email.trim(),
+      phone: data.phone.trim(),
+      isPhoneVerified: true,
+      kycStatus: 'verified',
+      assignedPlanId: data.autoAssign14MPlan ? 'plan-14m-15pct' : null,
+      assignedPlanName: data.autoAssign14MPlan
+        ? 'INFINIX 14-Month Wealth Accelerator'
+        : undefined,
+      assignedPlanAmount: data.autoAssign14MPlan ? amount : undefined,
+      assignedPlanStartDate: data.autoAssign14MPlan ? today : undefined,
+      assignedPlanStatus: data.autoAssign14MPlan ? 'active' : 'pending_assignment',
+      currentMonthIndex: 1,
+      currentMonthWithdrawn: false,
+      bankAccount: data.bankAccount.trim() || 'HDFC Bank ••••4412',
+      totalAum: data.autoAssign14MPlan ? amount : 0,
+      joinedDate: today,
+      notes: 'Manually enrolled by Chief Wealth Admin via Web Desk.',
+    };
+
+    setClients((prev) => [newClient, ...prev]);
+
+    addAuditLog(
+      'New Client Onboarded',
+      'client_verification',
+      `Enrolled new investor ${newClient.firstName} ${newClient.lastName} (${newClient.email}) with ${
+        data.autoAssign14MPlan
+          ? `INFINIX 14-Month 15% Return Accelerator (₹${amount.toLocaleString('en-IN')})`
+          : 'Pending Plan Assignment'
+      }.`
+    );
+
+    return {
+      success: true,
+      message: `Investor ${newClient.firstName} ${newClient.lastName} successfully enrolled!`,
+      clientId: newId,
+    };
+  };
+
+  // COMPUTED STATS
+  const stats = useMemo(() => {
+    const totalAum = clients.reduce((acc, c) => acc + (c.assignedPlanAmount || 0), 0);
+    const activeInvestorsCount = clients.filter(
+      (c) => c.assignedPlanStatus === 'active'
+    ).length;
+    const pendingPhoneCount = clients.filter((c) => !c.isPhoneVerified).length;
+
+    const pendingWithdrawals = withdrawals.filter((w) => w.status === 'pending_approval');
+    const pendingWithdrawalCount = pendingWithdrawals.length;
+    const pendingWithdrawalTotal = pendingWithdrawals.reduce(
+      (acc, w) => acc + w.amount,
+      0
+    );
+
+    // Monthly disbursement liability = 15% of all active assigned capital
+    const monthlyLiabilityTotal = clients
+      .filter((c) => c.assignedPlanStatus === 'active')
+      .reduce((acc, c) => acc + ((c.assignedPlanAmount || 0) * 15) / 100, 0);
+
+    return {
+      totalAum,
+      activeInvestorsCount,
+      pendingPhoneCount,
+      pendingWithdrawalCount,
+      pendingWithdrawalTotal,
+      monthlyLiabilityTotal,
+    };
+  }, [clients, withdrawals]);
+
+  return (
+    <AdminContext.Provider
+      value={{
+        activeTab,
+        setActiveTab,
+        clients,
+        plans,
+        withdrawals,
+        auditLogs,
+        verifyClientPhone,
+        assignPlanToClient,
+        revokeClientPlan,
+        approveWithdrawal,
+        rejectWithdrawal,
+        addNewClient,
+        stats,
+      }}
+    >
+      {children}
+    </AdminContext.Provider>
+  );
+}
+
+export function useAdmin() {
+  const context = useContext(AdminContext);
+  if (!context) {
+    throw new Error('useAdmin must be used within an AdminProvider');
+  }
+  return context;
+}
+
