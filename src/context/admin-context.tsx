@@ -1,6 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { api } from '@/services/api';
 import {
   ClientProfile,
   InvestmentPlanConfig,
@@ -85,6 +86,48 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [referralTiers, setReferralTiers] = useState<ReferralLevelTier[]>(INITIAL_REFERRAL_TIERS);
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>(INITIAL_AUDIT_LOGS);
 
+  // Synchronize state with unified Fastify + MongoDB backend server
+  useEffect(() => {
+    let isMounted = true;
+    async function loadServerData() {
+      try {
+        const [cRes, pRes, wRes, rRes, tRes, aRes] = await Promise.allSettled([
+          api.getClients(),
+          api.getPlans(),
+          api.getWithdrawals(),
+          api.getReferrals(),
+          api.getReferralTiers(),
+          api.getAuditLogs(),
+        ]);
+
+        if (isMounted && cRes.status === 'fulfilled' && cRes.value.success && cRes.value.data?.length) {
+          setClients(cRes.value.data);
+        }
+        if (isMounted && pRes.status === 'fulfilled' && pRes.value.success && pRes.value.data?.length) {
+          setPlans(pRes.value.data);
+        }
+        if (isMounted && wRes.status === 'fulfilled' && wRes.value.success && wRes.value.data?.length) {
+          setWithdrawals(wRes.value.data);
+        }
+        if (isMounted && rRes.status === 'fulfilled' && rRes.value.success && rRes.value.data?.length) {
+          setReferrals(rRes.value.data);
+        }
+        if (isMounted && tRes.status === 'fulfilled' && tRes.value.success && tRes.value.data?.length) {
+          setReferralTiers(tRes.value.data);
+        }
+        if (isMounted && aRes.status === 'fulfilled' && aRes.value.success && aRes.value.data?.length) {
+          setAuditLogs(aRes.value.data);
+        }
+      } catch {
+        // Fallback gracefully to initial local data
+      }
+    }
+    loadServerData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const addAuditLog = (
     action: string,
     category: AuditLogItem['category'],
@@ -123,6 +166,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       'client_verification',
       `Manual phone verification authorized for ${client.firstName} ${client.lastName} (${client.phone}). User unlocked for plan assignment.`
     );
+
+    api.updateClient(clientId, { isPhoneVerified: true, kycStatus: 'verified' }).catch(() => {});
 
     return {
       success: true,
@@ -190,6 +235,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       'plan_assignment',
       `Assigned "${plan.planName}" with ₹${amount.toLocaleString('en-IN')} capital to ${client.firstName} ${client.lastName}. Monthly distribution: 15% (₹${((amount * 15) / 100).toLocaleString('en-IN')}).`
     );
+
+    api.assignPlan(clientId, plan.id, amount, 'Chief Wealth Admin (Altaf)').catch(() => {});
 
     return {
       success: true,
@@ -269,6 +316,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       'withdrawal_approval',
       `Approved monthly payout of ₹${wd.amount.toLocaleString('en-IN')} for ${wd.clientName} (${wd.bankAccount}). UTR: ${utr}. Non-withdrawal fee waived.`
     );
+
+    api.updateWithdrawalStatus(withdrawalId, 'disbursed', utr, 'Disbursed via bank transfer', 'Chief Wealth Admin (Altaf)').catch(() => {});
 
     return {
       success: true,
@@ -437,6 +486,19 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           : 'Pending Plan Assignment'
       }.`
     );
+
+    api.createClient({
+      firstName: data.firstName.trim(),
+      lastName: data.lastName.trim(),
+      email: data.email.trim(),
+      phone: data.phone.trim(),
+      bankAccount: data.bankAccount.trim(),
+      isPhoneVerified: true,
+      kycStatus: 'verified',
+      assignedPlanId: data.autoAssign14MPlan ? 'plan-14m-15pct' : null,
+      assignedPlanAmount: data.autoAssign14MPlan ? amount : 0,
+      referredByCode: data.referredByCode,
+    }).catch(() => {});
 
     return {
       success: true,
