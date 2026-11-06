@@ -19,7 +19,7 @@ import { useAdmin } from '@/context/admin-context';
 export function ReferralsView() {
   const { referrals, disburseReferralCommission, stats, setActiveTab } = useAdmin();
   const [search, setSearch] = useState('');
-  const [levelFilter, setLevelFilter] = useState<'all' | '1' | '2' | '3'>('all');
+  const [levelFilter, setLevelFilter] = useState<'all' | '1' | '2' | '3' | '4' | '5'>('all');
   const [toast, setToast] = useState('');
 
   const showToast = (msg: string) => {
@@ -139,7 +139,7 @@ export function ReferralsView() {
           </div>
           <div className="mt-3">
             <h2 className="text-2xl font-black text-white tracking-tight">
-              3 Tiers Active
+              5 Tiers Active
             </h2>
             <button
               onClick={() => setActiveTab('levels')}
@@ -179,21 +179,51 @@ export function ReferralsView() {
             onClick={() => setLevelFilter('1')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
               levelFilter === '1'
-                ? 'bg-blue-500 text-white font-bold'
+                ? 'bg-emerald-500 text-black font-bold'
                 : 'bg-[#080C14] text-slate-400 border border-[#1E293B]'
             }`}
           >
-            Level 1 (Direct 2.0%)
+            Level 1 (10% ROI)
           </button>
           <button
             onClick={() => setLevelFilter('2')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
               levelFilter === '2'
+                ? 'bg-blue-500 text-white font-bold'
+                : 'bg-[#080C14] text-slate-400 border border-[#1E293B]'
+            }`}
+          >
+            Level 2 (5% ROI)
+          </button>
+          <button
+            onClick={() => setLevelFilter('3')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
+              levelFilter === '3'
                 ? 'bg-purple-500 text-white font-bold'
                 : 'bg-[#080C14] text-slate-400 border border-[#1E293B]'
             }`}
           >
-            Level 2 (Secondary 1.0%)
+            Level 3 (3% ROI)
+          </button>
+          <button
+            onClick={() => setLevelFilter('4')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
+              levelFilter === '4'
+                ? 'bg-amber-500 text-black font-bold'
+                : 'bg-[#080C14] text-slate-400 border border-[#1E293B]'
+            }`}
+          >
+            Level 4 (2% ROI)
+          </button>
+          <button
+            onClick={() => setLevelFilter('5')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
+              levelFilter === '5'
+                ? 'bg-[#D4AF37] text-black font-bold'
+                : 'bg-[#080C14] text-slate-400 border border-[#1E293B]'
+            }`}
+          >
+            Level 5 (1% ROI)
           </button>
         </div>
       </div>

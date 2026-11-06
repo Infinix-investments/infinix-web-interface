@@ -45,7 +45,7 @@ interface AdminContextType {
     startDate?: string
   ) => { success: boolean; message: string };
   revokeClientPlan: (clientId: string) => { success: boolean; message: string };
-  approveWithdrawal: (withdrawalId: string) => { success: boolean; message: string };
+  approveWithdrawal: (withdrawalId: string, customUtr?: string) => { success: boolean; message: string };
   rejectWithdrawal: (withdrawalId: string, reason: string) => { success: boolean; message: string };
   disburseReferralCommission: (referralId: string) => { success: boolean; message: string };
   updateReferralTier: (
@@ -278,11 +278,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   };
 
   // 4. APPROVE MONTHLY WITHDRAWAL
-  const approveWithdrawal = (withdrawalId: string) => {
+  const approveWithdrawal = (withdrawalId: string, customUtr?: string) => {
     const wd = withdrawals.find((w) => w.id === withdrawalId);
     if (!wd) return { success: false, message: 'Withdrawal record not found.' };
 
-    const utr = `CMS-${Date.now().toString().slice(-8)}`;
+    const utr = customUtr?.trim() || `CMS-${Date.now().toString().slice(-8)}`;
     const today = new Date().toISOString().split('T')[0];
 
     setWithdrawals((prev) =>

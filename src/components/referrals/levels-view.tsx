@@ -68,77 +68,85 @@ export function LevelsView() {
         </div>
       </div>
 
-      {/* 3 Tier Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* 5 Tier Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
         {referralTiers.map((tier) => (
           <div
             key={tier.level}
-            className={`p-6 rounded-3xl bg-[#0D131F] border transition-all relative overflow-hidden flex flex-col justify-between ${
+            className={`p-5 rounded-3xl bg-[#0D131F] border transition-all relative overflow-hidden flex flex-col justify-between ${
               tier.level === 1
-                ? 'border-blue-500/40 shadow-lg shadow-blue-500/5'
+                ? 'border-emerald-500/40 shadow-lg shadow-emerald-500/5'
                 : tier.level === 2
+                ? 'border-blue-500/40 shadow-lg shadow-blue-500/5'
+                : tier.level === 3
                 ? 'border-purple-500/40 shadow-lg shadow-purple-500/5'
-                : 'border-[#D4AF37]/40 shadow-lg shadow-[#D4AF37]/5'
+                : tier.level === 4
+                ? 'border-amber-500/40 shadow-lg shadow-amber-500/5'
+                : 'border-[#D4AF37]/50 shadow-lg shadow-[#D4AF37]/10'
             }`}
           >
             <div>
               <div className="flex items-center justify-between">
                 <span
-                  className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                  className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                     tier.level === 1
-                      ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                       : tier.level === 2
+                      ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                      : tier.level === 3
                       ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                      : tier.level === 4
+                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                       : 'bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/30'
                   }`}
                 >
-                  Level {tier.level} Tier
+                  Level {tier.level}
                 </span>
-                <span className="text-[11px] font-semibold text-emerald-400">
-                  ● Active Status
+                <span className="text-[10px] font-semibold text-emerald-400">
+                  ● Active
                 </span>
               </div>
 
-              <h3 className="text-xl font-black text-white mt-4">{tier.name}</h3>
-              <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+              <h3 className="text-base font-black text-white mt-3">{tier.name}</h3>
+              <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
                 {tier.description}
               </p>
 
-              <div className="mt-6 p-4 rounded-2xl bg-[#080C14] border border-[#1E293B] space-y-3">
+              <div className="mt-4 p-3.5 rounded-2xl bg-[#080C14] border border-[#1E293B] space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-400">Monthly Commission Rate:</span>
-                  <span className="text-xl font-black text-[#D4AF37]">
+                  <span className="text-[11px] text-slate-400">Commission (% of ROI):</span>
+                  <span className="text-lg font-black text-[#D4AF37]">
                     {tier.commissionPct}%
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-[11px] text-slate-400 border-t border-[#1E293B] pt-2">
-                  <span>Min Direct Introductions:</span>
+                <div className="flex items-center justify-between text-[10px] text-slate-400 border-t border-[#1E293B] pt-2">
+                  <span>Required Active Plans:</span>
                   <span className="font-semibold text-white">
-                    {tier.minDirectReferrals} Verified
+                    {tier.minDirectReferrals || tier.level * 2} Plans
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-[11px] text-slate-400">
-                  <span>Min Team Volume:</span>
-                  <span className="font-semibold text-white">
-                    {formatINR(tier.minTeamAum)}
+                <div className="flex items-center justify-between text-[10px] text-slate-400">
+                  <span>Unlock Rule:</span>
+                  <span className="font-semibold text-emerald-400">
+                    2 Plans / Level
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-[#1E293B] flex items-center justify-between">
-              <div className="text-xs text-slate-400">
-                Active Partners: <strong className="text-white">{tier.totalMembersCount}</strong>
+            <div className="mt-5 pt-3.5 border-t border-[#1E293B] flex items-center justify-between">
+              <div className="text-[11px] text-slate-400">
+                Partners: <strong className="text-white">{tier.totalMembersCount}</strong>
               </div>
               <button
                 onClick={() => {
                   setEditingTier(tier);
                   setEditRate(tier.commissionPct);
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#080C14] border border-[#1E293B] text-slate-300 hover:text-white font-semibold text-xs"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#080C14] border border-[#1E293B] text-slate-300 hover:text-white font-semibold text-[11px]"
               >
-                <Edit2 className="w-3.5 h-3.5 text-[#D4AF37]" />
-                <span>Adjust Rate</span>
+                <Edit2 className="w-3 h-3 text-[#D4AF37]" />
+                <span>Adjust</span>
               </button>
             </div>
           </div>
@@ -149,59 +157,83 @@ export function LevelsView() {
       <div className="p-6 rounded-2xl bg-[#0D131F] border border-[#1E293B]">
         <div className="pb-4 border-b border-[#1E293B]">
           <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-            Illustrative Network Yield Flow (Example: ₹10,00,000 14M Plan Allocation)
+            Illustrative 5-Tier Syndicate Yield Flow (Example: ₹10,00,000 14M Plan Allocation • ₹1.5L/mo ROI)
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            How monthly returns and affiliate tier bonuses are funded systematically
+            Every level's payout is calculated strictly as a percentage of the referred investor's contractual monthly ROI (15% yield).
           </p>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
-          <div className="p-4 rounded-2xl bg-[#080C14] border border-emerald-500/30">
+        <div className="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5 text-center">
+          <div className="p-3.5 rounded-2xl bg-[#080C14] border border-emerald-500/30">
             <div className="text-[10px] font-bold text-slate-400 uppercase">
-              Investor Payout (15%)
+              Investor ROI (15%)
             </div>
-            <div className="text-xl font-black text-emerald-400 mt-1">
+            <div className="text-lg font-black text-emerald-400 mt-1">
               ₹1,50,000 / mo
             </div>
             <div className="text-[10px] text-slate-400 mt-1">
-              Direct to investor's verified bank
+              Direct to investor's bank
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-[#080C14] border border-blue-500/30">
+          <div className="p-3.5 rounded-2xl bg-[#080C14] border border-emerald-500/30">
             <div className="text-[10px] font-bold text-slate-400 uppercase">
-              Level 1 Direct (2.0%)
+              Level 1 (10% ROI)
             </div>
-            <div className="text-xl font-black text-blue-400 mt-1">
-              ₹20,000 / mo
+            <div className="text-lg font-black text-emerald-400 mt-1">
+              ₹15,000 / mo
             </div>
             <div className="text-[10px] text-slate-400 mt-1">
-              Direct introducer partner bonus
+              Requires 2 active plans
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-[#080C14] border border-purple-500/30">
+          <div className="p-3.5 rounded-2xl bg-[#080C14] border border-blue-500/30">
             <div className="text-[10px] font-bold text-slate-400 uppercase">
-              Level 2 Override (1.0%)
+              Level 2 (5% ROI)
             </div>
-            <div className="text-xl font-black text-purple-400 mt-1">
-              ₹10,000 / mo
+            <div className="text-lg font-black text-blue-400 mt-1">
+              ₹7,500 / mo
             </div>
             <div className="text-[10px] text-slate-400 mt-1">
-              Secondary syndicator override
+              Requires 4 active plans
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-[#080C14] border border-[#D4AF37]/30">
+          <div className="p-3.5 rounded-2xl bg-[#080C14] border border-purple-500/30">
             <div className="text-[10px] font-bold text-slate-400 uppercase">
-              Level 3 Pool (0.5%)
+              Level 3 (3% ROI)
             </div>
-            <div className="text-xl font-black text-[#D4AF37] mt-1">
-              ₹5,000 / mo
+            <div className="text-lg font-black text-purple-400 mt-1">
+              ₹4,500 / mo
             </div>
             <div className="text-[10px] text-slate-400 mt-1">
-              Institutional desk bonus
+              Requires 6 active plans
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-[#080C14] border border-amber-500/30">
+            <div className="text-[10px] font-bold text-slate-400 uppercase">
+              Level 4 (2% ROI)
+            </div>
+            <div className="text-lg font-black text-amber-400 mt-1">
+              ₹3,000 / mo
+            </div>
+            <div className="text-[10px] text-slate-400 mt-1">
+              Requires 8 active plans
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-[#080C14] border border-[#D4AF37]/40">
+            <div className="text-[10px] font-bold text-slate-400 uppercase">
+              Level 5 (1% ROI)
+            </div>
+            <div className="text-lg font-black text-[#D4AF37] mt-1">
+              ₹1,500 / mo
+            </div>
+            <div className="text-[10px] text-slate-400 mt-1">
+              Requires 10 active plans
             </div>
           </div>
         </div>

@@ -52,8 +52,8 @@ export function Sidebar() {
     },
     {
       id: 'clients',
-      label: 'Investors & Verification',
-      sublabel: 'Phone OTP & Plans',
+      label: 'Registered Clients',
+      sublabel: 'Profiles, Phone & Referrals',
       icon: Users,
       badge: stats.pendingPhoneCount > 0 ? stats.pendingPhoneCount : undefined,
       badgeColor: 'bg-amber-500/20 text-amber-400 border border-amber-500/40',
@@ -66,14 +66,14 @@ export function Sidebar() {
     },
     {
       id: 'withdrawals',
-      label: 'Monthly Disbursements',
-      sublabel: 'Withdrawal Claims & Fee Waiver',
+      label: 'Withdrawal Management',
+      sublabel: 'Claims & Payout Approvals',
       icon: CreditCard,
       badge:
         stats.pendingWithdrawalCount > 0
           ? stats.pendingWithdrawalCount
           : undefined,
-      badgeColor: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40',
+      badgeColor: 'bg-amber-500/20 text-amber-400 border border-amber-500/40',
     },
     {
       id: 'audit',
