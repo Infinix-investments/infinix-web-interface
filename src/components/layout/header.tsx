@@ -8,6 +8,8 @@ import {
   PlusCircle,
   Bell,
   RefreshCw,
+  Clock,
+  CreditCard,
 } from 'lucide-react';
 import { useAdmin } from '@/context/admin-context';
 
@@ -24,16 +26,16 @@ export function Header({ onOpenNewClientModal }: HeaderProps) {
       subtitle: 'Real-time AUM, liabilities, and client status overview',
     },
     clients: {
-      title: 'Investor Management & Verification',
-      subtitle: 'Verify mobile phone numbers and assign contractual wealth plans',
+      title: 'Registered Clients & Referral Directory',
+      subtitle: 'Monitor user profiles, verify mobile phones, inspect referral tiers, and assign plans',
     },
     plans: {
       title: 'Plan Configuration & Tranche Engine',
       subtitle: 'Active 14-Month 15% Return Accelerator and yield simulation',
     },
     withdrawals: {
-      title: 'Monthly Distribution & Disbursements',
-      subtitle: 'Process 15% monthly investor withdrawals and waive non-withdrawal fees',
+      title: 'Withdrawal Management Desk',
+      subtitle: 'Authorize 15.0% monthly client payout claims and issue Bank UTR references',
     },
     referrals: {
       title: 'Referral Network & Affiliate Directory',
@@ -69,6 +71,14 @@ export function Header({ onOpenNewClientModal }: HeaderProps) {
             <span className="text-emerald-400 font-bold">256-Bit Live</span>
           </span>
         </div>
+
+        {/* Pending Withdrawal Claims Pill */}
+        {stats.pendingWithdrawalCount > 0 && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-400 text-xs font-semibold animate-pulse">
+            <Clock className="w-3.5 h-3.5" />
+            <span>{stats.pendingWithdrawalCount} Pending Withdrawal Claim{stats.pendingWithdrawalCount !== 1 ? 's' : ''}</span>
+          </div>
+        )}
 
         {/* Pending Alerts Pill */}
         {stats.pendingPhoneCount > 0 && (

@@ -101,3 +101,29 @@ export interface AuditLogItem {
     | 'referral_management';
   details: string;
 }
+
+export interface ReferredUserItem {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  joinedDate: string;
+  hasActivePlan: boolean;
+  planName: string;
+  capital: number;
+  monthlyRoi: number; // 15% of capital
+  status: 'active' | 'pending';
+}
+
+export interface ClientReferralSummary {
+  referralCode: string;
+  totalReferred: number;
+  activePlanReferrals: number;
+  level: number; // 0 to 5
+  levelName: string;
+  roiPct: number; // 0, 10, 5, 3, 2, 1
+  neededForNext: number;
+  plansRemainingForNext: number;
+  monthlyCommissionYield: number;
+  refereeList: ReferredUserItem[];
+}
