@@ -83,12 +83,12 @@ const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
 export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
-  const [clients, setClients] = useState<ClientProfile[]>(INITIAL_CLIENTS);
+  const [clients, setClients] = useState<ClientProfile[]>([]);
   const [plans, setPlans] = useState<InvestmentPlanConfig[]>(INITIAL_PLANS);
-  const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>(INITIAL_WITHDRAWALS);
-  const [referrals, setReferrals] = useState<ReferralRecord[]>(INITIAL_REFERRALS);
+  const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>([]);
+  const [referrals, setReferrals] = useState<ReferralRecord[]>([]);
   const [referralTiers, setReferralTiers] = useState<ReferralLevelTier[]>(INITIAL_REFERRAL_TIERS);
-  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>(INITIAL_AUDIT_LOGS);
+  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
 
   // Synchronize state with unified Fastify + MongoDB backend server
   useEffect(() => {
@@ -104,26 +104,26 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           api.getAuditLogs(),
         ]);
 
-        if (isMounted && cRes.status === 'fulfilled' && cRes.value.success && cRes.value.data?.length) {
+        if (isMounted && cRes.status === 'fulfilled' && cRes.value.success && Array.isArray(cRes.value.data)) {
           setClients(cRes.value.data);
         }
-        if (isMounted && pRes.status === 'fulfilled' && pRes.value.success && pRes.value.data?.length) {
+        if (isMounted && pRes.status === 'fulfilled' && pRes.value.success && Array.isArray(pRes.value.data) && pRes.value.data.length) {
           setPlans(pRes.value.data);
         }
-        if (isMounted && wRes.status === 'fulfilled' && wRes.value.success && wRes.value.data?.length) {
+        if (isMounted && wRes.status === 'fulfilled' && wRes.value.success && Array.isArray(wRes.value.data)) {
           setWithdrawals(wRes.value.data);
         }
-        if (isMounted && rRes.status === 'fulfilled' && rRes.value.success && rRes.value.data?.length) {
+        if (isMounted && rRes.status === 'fulfilled' && rRes.value.success && Array.isArray(rRes.value.data)) {
           setReferrals(rRes.value.data);
         }
-        if (isMounted && tRes.status === 'fulfilled' && tRes.value.success && tRes.value.data?.length) {
+        if (isMounted && tRes.status === 'fulfilled' && tRes.value.success && Array.isArray(tRes.value.data) && tRes.value.data.length) {
           setReferralTiers(tRes.value.data);
         }
-        if (isMounted && aRes.status === 'fulfilled' && aRes.value.success && aRes.value.data?.length) {
+        if (isMounted && aRes.status === 'fulfilled' && aRes.value.success && Array.isArray(aRes.value.data)) {
           setAuditLogs(aRes.value.data);
         }
       } catch {
-        // Fallback gracefully to initial local data
+        // Fallback gracefully to empty state
       }
     }
     loadServerData();
@@ -552,7 +552,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       assignedPlanStatus: data.autoAssign14MPlan ? 'active' : 'pending_assignment',
       currentMonthIndex: 1,
       currentMonthWithdrawn: false,
-      bankAccount: data.bankAccount.trim() || 'HDFC Bank ••••4412',
+      bankAccount: data.bankAccount.trim() || '',
       totalAum: data.autoAssign14MPlan ? amount : 0,
       joinedDate: today,
       notes: 'Manually enrolled by Chief Wealth Admin via Web Desk.',
