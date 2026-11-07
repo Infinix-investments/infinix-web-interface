@@ -113,6 +113,12 @@ export function ClientDetailModal({
   const monthlyPayout = client.assignedPlanAmount
     ? (client.assignedPlanAmount * 15) / 100
     : 0;
+  const dailyProfit = client.assignedPlanAmount
+    ? (client.assignedPlanAmount * 0.5) / 100
+    : 0;
+  const planStart = client.assignedPlanStartDate ? new Date(client.assignedPlanStartDate) : new Date();
+  const daysElapsed = Math.max(1, Math.min(420, Math.floor((Date.now() - planStart.getTime()) / (1000 * 60 * 60 * 24)) + 1));
+  const totalAccruedSoFar = daysElapsed * dailyProfit;
   const monthlyCapitalReturn = monthlyPayout / 2; // 7.5%
   const monthlyProfitReturn = monthlyPayout / 2; // 7.5%
   const totalMaturityGross = client.assignedPlanAmount
@@ -523,6 +529,44 @@ export function ClientDetailModal({
                     </div>
                   </div>
 
+                  {/* Daily Incremental Accrual Card (0.5% / day) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 rounded-2xl bg-[#080C14] border border-emerald-500/40">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Daily Increment (+0.5%)
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">
+                          Active Daily Accrual
+                        </span>
+                      </div>
+                      <div className="text-2xl font-black text-emerald-400 mt-1">
+                        +{formatINR(dailyProfit)}
+                        <span className="text-xs text-slate-400 font-normal"> / day</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        Accrues every 24 hours on ₹{formatINR(client.assignedPlanAmount)} principal
+                      </p>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-[#080C14] border border-[#D4AF37]/40">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Accrued Returns to Date
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] font-bold text-[10px]">
+                          Day {daysElapsed} of 420
+                        </span>
+                      </div>
+                      <div className="text-2xl font-black text-white mt-1">
+                        {formatINR(totalAccruedSoFar)}
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        Accumulated across {daysElapsed} active calendar days
+                      </p>
+                    </div>
+                  </div>
+
                   {/* 15% Monthly Return Structure Card */}
                   <div className="rounded-2xl bg-[#080C14] border border-[#1E293B] p-5 space-y-4">
                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
@@ -622,18 +666,19 @@ export function ClientDetailModal({
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-white">
-                      No Investment Plan Assigned Yet
+                      Payment Verification & Plan Activation
                     </h3>
                     <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
-                      This investor has not been allocated an investment tranche. Assign the 14-Month 15% Return Accelerator to enable their monthly payouts and referral earnings.
+                      Once client payment is received in Infinix escrow, start their plan here. The plan will become active immediately and begin accruing 0.5% daily (15% monthly) in the investor&apos;s app.
                     </p>
                   </div>
                   {onOpenAssignModal && (
                     <button
                       onClick={() => onOpenAssignModal(client.id)}
-                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#F59E0B] text-black font-extrabold text-xs hover:brightness-110 shadow-lg shadow-[#D4AF37]/20 transition-all"
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white font-extrabold text-xs hover:brightness-110 shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2 mx-auto"
                     >
-                      ⚡ Assign 14-Month 15% Plan Now
+                      <CheckCircle className="w-4 h-4" />
+                      <span>✓ Verify Payment & Start Plan</span>
                     </button>
                   )}
                 </div>
@@ -1025,9 +1070,10 @@ export function ClientDetailModal({
             {client.isPhoneVerified && client.assignedPlanStatus !== 'active' && onOpenAssignModal && (
               <button
                 onClick={() => onOpenAssignModal(client.id)}
-                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#F59E0B] text-black font-extrabold text-xs hover:brightness-110 shadow-md shadow-[#D4AF37]/20 transition-all"
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white font-extrabold text-xs hover:brightness-110 shadow-md shadow-emerald-500/20 transition-all flex items-center gap-1.5"
               >
-                ⚡ Assign 14-Month 15% Plan
+                <CheckCircle className="w-3.5 h-3.5" />
+                <span>Verify Payment & Start Plan</span>
               </button>
             )}
 

@@ -66,10 +66,17 @@ class ApiClient {
     });
   }
 
-  async assignPlan(clientId: string, planId: string, capitalAmount: number, adminName?: string) {
+  async assignPlan(
+    clientId: string,
+    planId: string,
+    capitalAmount: number,
+    adminName?: string,
+    startDate?: string,
+    paymentReference?: string
+  ) {
     return this.request<any>(`/clients/${clientId}/assign-plan`, {
       method: 'POST',
-      body: JSON.stringify({ planId, capitalAmount, adminName }),
+      body: JSON.stringify({ planId, capitalAmount, adminName, startDate, paymentReference }),
     });
   }
 
@@ -82,6 +89,19 @@ class ApiClient {
     return this.request<any>('/plans', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  async updatePlan(planId: string, updates: any) {
+    return this.request<any>(`/plans/${planId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  async deletePlan(planId: string) {
+    return this.request<any>(`/plans/${planId}`, {
+      method: 'DELETE',
     });
   }
 
