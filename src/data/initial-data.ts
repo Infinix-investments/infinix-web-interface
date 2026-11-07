@@ -54,11 +54,11 @@ export const INITIAL_REFERRAL_TIERS: ReferralLevelTier[] = [
   {
     level: 1,
     name: 'Level 1: Direct Wealth Partner',
-    commissionPct: 10.0,
+    commissionPct: 5.0,
     minTeamAum: 0,
     minDirectReferrals: 2,
     description:
-      'Direct Introducer Tier. Earns 10% of referred investor’s monthly ROI. Unlocks after 2 referrals start an active plan.',
+      'Direct Introducer Tier. Earns 5% of referred investor’s monthly ROI. Unlocks after 2 referrals start an active plan.',
     totalMembersCount: 0,
     totalVolumeGenerated: 0,
     status: 'active',
