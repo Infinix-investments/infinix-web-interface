@@ -33,7 +33,7 @@ export function OverviewView({ onOpenAssignModal }: OverviewViewProps) {
   const pendingWithdrawals = withdrawals.filter((w) => w.status === 'pending_approval');
 
   const formatINR = (val: number) => {
-    return '₹' + val.toLocaleString('en-IN');
+    return val.toLocaleString('en-US') + ' USDT';
   };
 
   return (

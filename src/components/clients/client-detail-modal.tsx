@@ -85,7 +85,7 @@ export function ClientDetailModal({
 
   const formatINR = (val?: number) => {
     if (val === undefined || val === null) return '—';
-    return '₹' + Math.round(val).toLocaleString('en-IN');
+    return Math.round(val).toLocaleString('en-US') + ' USDT';
   };
 
   const handleCopyCode = () => {
@@ -251,7 +251,7 @@ export function ClientDetailModal({
             <div className="text-base md:text-lg font-black text-[#D4AF37] mt-1">
               {referralStats.monthlyCommissionYield > 0
                 ? formatINR(referralStats.monthlyCommissionYield) + '/mo'
-                : '₹0.00 /mo'}
+                : '0.00 USDT/mo'}
             </div>
             <div className="text-[11px] text-slate-400 mt-0.5">
               {referralStats.roiPct > 0 ? `${referralStats.roiPct}% of referee ROI` : 'Unlock at Level 1'}
@@ -452,7 +452,7 @@ export function ClientDetailModal({
                       Non-Withdrawal Custodian Fee Waiver
                     </span>
                     <span className="font-bold text-emerald-400 text-sm mt-0.5 block">
-                      ₹0.00 (100% Contractual Waiver)
+                      0.00 USDT (100% Contractual Waiver)
                     </span>
                     <span className="text-[11px] text-slate-500 mt-1 block">
                       Exempt from holding charges when claimed monthly
@@ -545,7 +545,7 @@ export function ClientDetailModal({
                         <span className="text-xs text-slate-400 font-normal"> / day</span>
                       </div>
                       <p className="text-[11px] text-slate-400 mt-1">
-                        Accrues every 24 hours on ₹{formatINR(client.assignedPlanAmount)} principal
+                        Accrues every 24 hours on {formatINR(client.assignedPlanAmount)} principal
                       </p>
                     </div>
 
@@ -618,7 +618,7 @@ export function ClientDetailModal({
                           Total 14-Month Gross Yield (210%)
                         </span>
                         <span className="text-[11px] text-blue-200/80">
-                          105% Return of Capital (₹{formatINR(client.assignedPlanAmount)}) + 105% Pure Profit (₹{formatINR(client.assignedPlanAmount)})
+                          105% Return of Capital ({formatINR(client.assignedPlanAmount)}) + 105% Pure Profit ({formatINR(client.assignedPlanAmount)})
                         </span>
                       </div>
                       <div className="text-base font-black text-white text-right">
@@ -898,7 +898,7 @@ export function ClientDetailModal({
                               </td>
 
                               <td className="py-3 px-4 text-right font-black text-[#D4AF37]">
-                                {userYield > 0 ? formatINR(userYield) + '/mo' : '₹0.00'}
+                                {userYield > 0 ? formatINR(userYield) + '/mo' : '0.00 USDT'}
                               </td>
                             </tr>
                           );
@@ -925,7 +925,7 @@ export function ClientDetailModal({
                           Active Withdrawal Claim Awaiting Approval
                         </h4>
                         <p className="text-[11px] text-amber-200/80 mt-0.5">
-                          Claimed Month {pendingWithdrawal.monthIndex} of 14 distribution (₹{formatINR(pendingWithdrawal.amount)}) for {client.bankAccount}. Custodian fee waived.
+                          Claimed Month {pendingWithdrawal.monthIndex} of 14 distribution ({formatINR(pendingWithdrawal.amount)}) for {client.bankAccount}. Custodian fee waived.
                         </p>
                       </div>
                     </div>

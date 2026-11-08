@@ -130,7 +130,7 @@ export function PlansView({ onOpenAssignModal }: PlansViewProps) {
   const totalNetProfit = totalMaturityPayout - simAmount; // ₹1,10,000 pure return
 
   const formatINR = (val: number) => {
-    return '₹' + Math.round(val).toLocaleString('en-IN');
+    return Math.round(val).toLocaleString('en-US') + ' USDT';
   };
 
   const activeEnrolledClients = clients.filter(
@@ -191,7 +191,7 @@ export function PlansView({ onOpenAssignModal }: PlansViewProps) {
               <div className="pt-2 flex items-center gap-6 flex-wrap text-xs text-slate-300">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span>Daily 0.5% Increment (₹500 / day on 1 Lakh)</span>
+                  <span>Daily 0.5% Increment (500 USDT / day on 100K USDT)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Lock className="w-4 h-4 text-[#D4AF37]" />
@@ -263,9 +263,9 @@ export function PlansView({ onOpenAssignModal }: PlansViewProps) {
           <div className="lg:col-span-5 space-y-4">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                Simulated Investment Capital (INR)
+                Simulated Investment Capital (USDT)
               </label>
-              <span className="text-xs text-[#D4AF37] font-semibold">Min: ₹1,00,000</span>
+              <span className="text-xs text-[#D4AF37] font-semibold">Min: 1,000 USDT</span>
             </div>
             <div className="text-3xl font-black text-white">
               {formatINR(simAmount)}
@@ -298,7 +298,7 @@ export function PlansView({ onOpenAssignModal }: PlansViewProps) {
             </div>
 
             <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-300">
-              💡 <strong>Example:</strong> At ₹1,00,000 invested, client receives <strong>+₹500/day</strong> (0.5% daily), accumulating to <strong>₹15,000/month</strong>, and receives <strong>₹2,10,000</strong> gross back over 14 months (₹1.10L pure profit).
+              💡 <strong>Example:</strong> At 100,000 USDT invested, client receives <strong>+500 USDT/day</strong> (0.5% daily), accumulating to <strong>15,000 USDT/month</strong>, and receives <strong>210,000 USDT</strong> gross back over 14 months (110,000 USDT pure profit).
             </div>
           </div>
 
@@ -618,7 +618,7 @@ export function PlansView({ onOpenAssignModal }: PlansViewProps) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider">
-                    Min Investment (INR)
+                    Min Investment (USDT)
                   </label>
                   <input
                     type="number"

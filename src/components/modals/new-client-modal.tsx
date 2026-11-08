@@ -175,7 +175,7 @@ export function NewClientModal({ onClose }: NewClientModalProps) {
                           : 'bg-[#0D131F] text-slate-400 border-[#1E293B]'
                       }`}
                     >
-                      ₹{amt.toLocaleString('en-IN')}
+                      {amt.toLocaleString('en-US')} USDT
                     </button>
                   ))}
                 </div>
