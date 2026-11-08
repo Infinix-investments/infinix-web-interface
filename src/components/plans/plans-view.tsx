@@ -29,8 +29,8 @@ export function PlansView({ onOpenAssignModal }: PlansViewProps) {
   const { plans, clients, createPlan, updatePlan, deletePlan } = useAdmin();
   const primaryPlan = plans.find((p) => p.isDefault) || plans[0];
 
-  // Simulator State (Default 1 Lakh = ₹100,000)
-  const [simAmount, setSimAmount] = useState<number>(100000);
+  // Simulator State (Default 1,000 USDT)
+  const [simAmount, setSimAmount] = useState<number>(1000);
 
   // Modal States
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -46,8 +46,8 @@ export function PlansView({ onOpenAssignModal }: PlansViewProps) {
     dailyReturnPct: 0.5,
     durationMonths: 14,
     grossTotalReturnPct: 210.0,
-    minInvestment: 100000,
-    maxInvestment: 50000000,
+    minInvestment: 100,
+    maxInvestment: 10000000,
     isDefault: false,
     status: 'active' as 'active' | 'closed',
   });
@@ -66,8 +66,8 @@ export function PlansView({ onOpenAssignModal }: PlansViewProps) {
       dailyReturnPct: 0.5,
       durationMonths: 14,
       grossTotalReturnPct: 210.0,
-      minInvestment: 100000,
-      maxInvestment: 50000000,
+      minInvestment: 100,
+      maxInvestment: 10000000,
       isDefault: plans.length === 0,
       status: 'active',
     });
@@ -265,7 +265,7 @@ export function PlansView({ onOpenAssignModal }: PlansViewProps) {
               <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">
                 Simulated Investment Capital (USDT)
               </label>
-              <span className="text-xs text-[#D4AF37] font-semibold">Min: 1,000 USDT</span>
+              <span className="text-xs text-[#D4AF37] font-semibold">Min: 100 USDT</span>
             </div>
             <div className="text-3xl font-black text-white">
               {formatINR(simAmount)}
@@ -273,16 +273,16 @@ export function PlansView({ onOpenAssignModal }: PlansViewProps) {
 
             <input
               type="range"
-              min={100000}
-              max={10000000}
-              step={50000}
+              min={100}
+              max={100000}
+              step={100}
               value={simAmount}
               onChange={(e) => setSimAmount(Number(e.target.value))}
               className="w-full accent-[#D4AF37] cursor-pointer"
             />
 
             <div className="flex items-center gap-2 pt-2 flex-wrap">
-              {[100000, 250000, 500000, 1000000, 2500000, 5000000].map((amt) => (
+              {[500, 1000, 2500, 5000, 10000, 50000].map((amt) => (
                 <button
                   key={amt}
                   onClick={() => setSimAmount(amt)}
@@ -622,8 +622,8 @@ export function PlansView({ onOpenAssignModal }: PlansViewProps) {
                   </label>
                   <input
                     type="number"
-                    step="10000"
-                    min="10000"
+                    step="1"
+                    min="0"
                     value={formData.minInvestment}
                     onChange={(e) => setFormData({ ...formData, minInvestment: Number(e.target.value) })}
                     className="w-full px-3.5 py-2 rounded-xl bg-[#080C14] border border-[#1E293B] text-white text-xs focus:outline-none focus:border-[#D4AF37]"
