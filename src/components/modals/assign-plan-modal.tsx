@@ -16,7 +16,7 @@ export function AssignPlanModal({ clientId: initialClientId, onClose }: AssignPl
     initialClientId || clients[0]?.id || ''
   );
   const [selectedPlanId, setSelectedPlanId] = useState<string>(plans[0]?.id || '');
-  const [allocatedCapital, setAllocatedCapital] = useState<number>(100000); // Default 1 Lakh
+  const [allocatedCapital, setAllocatedCapital] = useState<number>(1000); // Default 1,000 USDT
   const [startDate, setStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [isPaymentVerified, setIsPaymentVerified] = useState<boolean>(true);
   const [paymentReference, setPaymentReference] = useState<string>('');
@@ -157,14 +157,14 @@ export function AssignPlanModal({ clientId: initialClientId, onClose }: AssignPl
             </label>
             <input
               type="number"
-              min={25000}
-              step={25000}
+              min={1}
+              step={1}
               value={allocatedCapital}
               onChange={(e) => setAllocatedCapital(Number(e.target.value))}
               className="w-full px-3.5 py-2.5 rounded-xl bg-[#080C14] border border-[#1E293B] text-white text-sm font-bold focus:outline-none focus:border-[#D4AF37]"
             />
             <div className="flex gap-1.5 pt-1 flex-wrap">
-              {[100000, 200000, 500000, 1000000].map((amt) => (
+              {[500, 1000, 2500, 5000, 10000].map((amt) => (
                 <button
                   key={amt}
                   type="button"

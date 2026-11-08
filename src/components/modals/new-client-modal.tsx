@@ -17,7 +17,7 @@ export function NewClientModal({ onClose }: NewClientModalProps) {
   const [phone, setPhone] = useState('+91 ');
   const [bankAccount, setBankAccount] = useState('HDFC Bank ••••4412');
   const [autoAssign14M, setAutoAssign14M] = useState(true);
-  const [capital, setCapital] = useState(1000000);
+  const [capital, setCapital] = useState(1000);
   const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -163,8 +163,8 @@ export function NewClientModal({ onClose }: NewClientModalProps) {
                 <label className="block text-[11px] text-slate-400">
                   Allocated Capital:
                 </label>
-                <div className="flex gap-2">
-                  {[1000000, 2500000, 5000000].map((amt) => (
+                <div className="flex gap-2 flex-wrap">
+                  {[500, 1000, 2500, 5000, 10000].map((amt) => (
                     <button
                       key={amt}
                       type="button"

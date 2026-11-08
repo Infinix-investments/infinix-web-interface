@@ -270,8 +270,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       profitMonthlyPct: data.profitMonthlyPct ?? 7.5,
       grossTotalReturnPct,
       netProfitPct: data.netProfitPct ?? (grossTotalReturnPct - 100),
-      minInvestment: data.minInvestment ?? 100000,
-      maxInvestment: data.maxInvestment ?? 50000000,
+      minInvestment: data.minInvestment !== undefined ? data.minInvestment : 100,
+      maxInvestment: data.maxInvestment ?? 10000000,
       isDefault: !!data.isDefault,
       status: data.status || 'active',
     };
@@ -532,7 +532,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   }) => {
     const newId = `c-${Date.now().toString().slice(-4)}`;
     const today = new Date().toISOString().split('T')[0];
-    const amount = data.allocatedAmount || 1000000;
+    const amount = data.allocatedAmount || 1000;
     const refCode = `INF-${data.firstName.toUpperCase()}${newId.slice(-3)}`;
 
     const newClient: ClientProfile = {
