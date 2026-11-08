@@ -3,6 +3,16 @@ export const API_BASE_URL =
 
 class ApiClient {
   private token: string | null = null;
+  private isWarming = false;
+
+  warmUp(): void {
+    if (this.isWarming) return;
+    this.isWarming = true;
+    try {
+      fetch(`${API_BASE_URL}/health`, { method: 'GET' }).catch(() => {});
+      fetch('https://infinix-server.onrender.com/', { method: 'GET' }).catch(() => {});
+    } catch {}
+  }
 
   setToken(token: string | null) {
     this.token = token;
@@ -12,6 +22,7 @@ class ApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<{ success: boolean; data?: T; error?: string; message?: string }> {
+    this.warmUp();
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
