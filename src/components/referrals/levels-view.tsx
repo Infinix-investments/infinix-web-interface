@@ -160,7 +160,7 @@ export function LevelsView() {
             Illustrative 5-Tier Syndicate Yield Flow (Example: 10,000 USDT 14M Plan Allocation • 1,500 USDT/mo ROI)
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            Every level's payout is calculated strictly as a percentage of the referred investor's contractual monthly ROI (15% yield).
+            Every level&apos;s payout is calculated strictly as a percentage of the referred investor&apos;s contractual monthly ROI (15% yield).
           </p>
         </div>
 

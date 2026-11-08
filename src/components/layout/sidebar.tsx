@@ -30,7 +30,8 @@ export function Sidebar() {
   // Auto-expand if user navigates to referrals or levels
   useEffect(() => {
     if (activeTab === 'referrals' || activeTab === 'levels') {
-      setIsReferEarnOpen(true);
+      const timer = setTimeout(() => setIsReferEarnOpen(true), 0);
+      return () => clearTimeout(timer);
     }
   }, [activeTab]);
 
