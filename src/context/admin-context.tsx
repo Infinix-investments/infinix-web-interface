@@ -379,11 +379,29 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       )
     );
 
+    // Also update any referral record where this client was referee to pending status
+    setReferrals((prev) =>
+      prev.map((r) =>
+        r.refereeId === clientId
+          ? {
+              ...r,
+              status: 'pending',
+              capitalAmount: 0,
+              monthlyCommissionAmount: 0,
+            }
+          : r
+      )
+    );
+
     addAuditLog(
       'Plan Revoked',
       'plan_assignment',
       `Revoked active investment plan from ${client.firstName} ${client.lastName}.`
     );
+
+    api.revokePlan(clientId, 'Chief Wealth Admin (Altaf)').catch((err) => {
+      console.error('Failed to revoke plan on server:', err);
+    });
 
     return {
       success: true,
