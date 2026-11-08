@@ -260,10 +260,10 @@ export function WithdrawalsView() {
           </div>
           <div className="mt-3">
             <h2 className="text-2xl font-black text-[#D4AF37]">
-              3% / 6% Fee
+              3% Flat Fee
             </h2>
             <p className="text-xs text-slate-400 mt-1">
-              3% standard fee • 6% overdue penalty
+              Flat 3% withdrawal fee • 10-day cycle gap • Zero late fees
             </p>
           </div>
         </div>
@@ -419,18 +419,9 @@ export function WithdrawalsView() {
                             Part {wd.partIndex || 1} of 2
                           </span>
                         </div>
-                        {wd.isLate ? (
-                          <div className="mt-1">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                              <AlertTriangle className="w-2.5 h-2.5" />
-                              Overdue Claim (6% Fee)
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="text-[10px] text-slate-400 mt-1">
-                            15-Day On-Time Window (3% Fee)
-                          </div>
-                        )}
+                        <div className="text-[10px] text-slate-400 mt-1">
+                          10-Day Cycle Window (3% Flat Fee)
+                        </div>
                       </td>
 
                       {/* Tranche payout amount breakdown */}
@@ -440,9 +431,9 @@ export function WithdrawalsView() {
                           <span className="text-[11px] font-normal text-slate-400 ml-1.5">(Net Payout)</span>
                         </div>
                         <div className="text-[10px] text-slate-400 font-medium mt-0.5">
-                          Gross: {formatINR(wd.grossAmount || wd.amount)} • Fee ({wd.feePct || (wd.isLate ? 6 : 3)}%):{' '}
+                          Gross: {formatINR(wd.grossAmount || wd.amount)} • Fee (3%):{' '}
                           <span className="text-amber-400 font-semibold">
-                            -{formatINR(wd.feeAmount || Math.round((wd.grossAmount || wd.amount) * ((wd.feePct || (wd.isLate ? 6 : 3)) / 100)))}
+                            -{formatINR(wd.feeAmount || Math.round((wd.grossAmount || wd.amount) * 0.03))}
                           </span>
                         </div>
                         <div className="text-[10px] text-emerald-400 font-medium mt-0.5">
@@ -591,17 +582,12 @@ export function WithdrawalsView() {
                 </span>
               </div>
               <div className="flex items-center justify-between pb-2 border-b border-[#1E293B]">
-                <span className="text-slate-400">
-                  {approvingRecord.isLate ? 'Late Withdrawal Fee (6%):' : 'Standard Processing Fee (3%):'}
-                </span>
-                <span className={`font-bold ${approvingRecord.isLate ? 'text-amber-400' : 'text-slate-300'}`}>
+                <span className="text-slate-400">Processing Fee (3%):</span>
+                <span className="font-bold text-slate-300">
                   -
                   {formatINR(
                     approvingRecord.feeAmount ||
-                      Math.round(
-                        (approvingRecord.grossAmount || approvingRecord.amount) *
-                          ((approvingRecord.feePct || (approvingRecord.isLate ? 6 : 3)) / 100)
-                      )
+                      Math.round((approvingRecord.grossAmount || approvingRecord.amount) * 0.03)
                   )}
                 </span>
               </div>
