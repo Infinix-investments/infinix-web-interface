@@ -247,11 +247,11 @@ export function WithdrawalsView() {
           </div>
         </div>
 
-        {/* Custodian Fee Waiver */}
+        {/* Fee Policy */}
         <div className="p-5 rounded-2xl bg-[#0D131F] border border-[#1E293B]">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-              Custodian Fee Waiver
+              Disbursement Fee Engine
             </span>
             <div className="p-2 rounded-xl bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/20">
               <ShieldCheck className="w-4 h-4" />
@@ -259,10 +259,10 @@ export function WithdrawalsView() {
           </div>
           <div className="mt-3">
             <h2 className="text-2xl font-black text-[#D4AF37]">
-              ₹0.00 (100% Waived)
+              3% / 6% Fee
             </h2>
             <p className="text-xs text-slate-400 mt-1">
-              Zero holding charge for timely claims
+              3% standard fee • 6% overdue penalty
             </p>
           </div>
         </div>
@@ -408,26 +408,44 @@ export function WithdrawalsView() {
                         </div>
                       </td>
 
-                      {/* Month index */}
+                      {/* Month & Tranche index */}
                       <td className="py-4 px-5">
-                        <span className="px-2.5 py-1 rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 text-[#D4AF37] font-bold text-[11px]">
-                          Month {wd.monthIndex} of 14
-                        </span>
-                        <div className="text-[10px] text-slate-400 mt-1">
-                          Cycle {wd.monthIndex} Payout
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="px-2.5 py-1 rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 text-[#D4AF37] font-bold text-[11px]">
+                            Month {wd.monthIndex} of 14
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-400 font-semibold text-[10px]">
+                            Part {wd.partIndex || 1} of 2
+                          </span>
                         </div>
+                        {wd.isLate ? (
+                          <div className="mt-1">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                              <AlertTriangle className="w-2.5 h-2.5" />
+                              Overdue Claim (6% Fee)
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-slate-400 mt-1">
+                            15-Day On-Time Window (3% Fee)
+                          </div>
+                        )}
                       </td>
 
-                      {/* 15% payout amount breakdown */}
+                      {/* Tranche payout amount breakdown */}
                       <td className="py-4 px-5">
                         <div className="font-black text-white text-base">
-                          {formatINR(wd.amount)}
+                          {formatINR(wd.netAmount || wd.amount)}
+                          <span className="text-[11px] font-normal text-slate-400 ml-1.5">(Net Payout)</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+                          Gross: {formatINR(wd.grossAmount || wd.amount)} • Fee ({wd.feePct || (wd.isLate ? 6 : 3)}%):{' '}
+                          <span className="text-amber-400 font-semibold">
+                            -{formatINR(wd.feeAmount || Math.round((wd.grossAmount || wd.amount) * ((wd.feePct || (wd.isLate ? 6 : 3)) / 100)))}
+                          </span>
                         </div>
                         <div className="text-[10px] text-emerald-400 font-medium mt-0.5">
-                          7.5% Principal ({formatINR(capitalReturn)}) + 7.5% Profit ({formatINR(profitReturn)})
-                        </div>
-                        <div className="text-[10px] text-slate-500">
-                          Fee: <span className="text-emerald-400 font-semibold">₹0.00 (Waived)</span>
+                          3.75% Principal ({formatINR(Math.round((wd.grossAmount || wd.amount) / 2))}) + 3.75% Profit ({formatINR(Math.round((wd.grossAmount || wd.amount) / 2))})
                         </div>
                       </td>
 
@@ -557,20 +575,39 @@ export function WithdrawalsView() {
               </div>
               <div className="flex items-center justify-between pb-2 border-b border-[#1E293B]">
                 <span className="text-slate-400">Tranche Tenure:</span>
-                <span className="font-bold text-[#D4AF37]">Month {approvingRecord.monthIndex} of 14</span>
+                <span className="font-bold text-[#D4AF37]">
+                  Month {approvingRecord.monthIndex} of 14 • Part {approvingRecord.partIndex || 1} of 2
+                </span>
               </div>
               <div className="flex items-center justify-between pb-2 border-b border-[#1E293B]">
                 <span className="text-slate-400">Destination Bank Account:</span>
                 <span className="font-mono font-bold text-slate-200">{approvingRecord.bankAccount}</span>
               </div>
               <div className="flex items-center justify-between pb-2 border-b border-[#1E293B]">
-                <span className="text-slate-400">Custodian Fee:</span>
-                <span className="font-bold text-emerald-400">₹0.00 (Waived)</span>
+                <span className="text-slate-400">Gross Tranche Amount:</span>
+                <span className="font-mono font-bold text-white">
+                  {formatINR(approvingRecord.grossAmount || approvingRecord.amount)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pb-2 border-b border-[#1E293B]">
+                <span className="text-slate-400">
+                  {approvingRecord.isLate ? 'Late Withdrawal Fee (6%):' : 'Standard Processing Fee (3%):'}
+                </span>
+                <span className={`font-bold ${approvingRecord.isLate ? 'text-amber-400' : 'text-slate-300'}`}>
+                  -
+                  {formatINR(
+                    approvingRecord.feeAmount ||
+                      Math.round(
+                        (approvingRecord.grossAmount || approvingRecord.amount) *
+                          ((approvingRecord.feePct || (approvingRecord.isLate ? 6 : 3)) / 100)
+                      )
+                  )}
+                </span>
               </div>
               <div className="flex items-center justify-between pt-1">
-                <span className="text-slate-300 font-bold">Net RTGS Transfer Amount:</span>
+                <span className="text-slate-300 font-bold">Net Bank Disbursement:</span>
                 <span className="font-black text-emerald-400 text-lg font-mono">
-                  {formatINR(approvingRecord.amount)}
+                  {formatINR(approvingRecord.netAmount || approvingRecord.amount)}
                 </span>
               </div>
             </div>

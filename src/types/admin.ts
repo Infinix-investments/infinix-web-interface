@@ -25,6 +25,8 @@ export interface ClientProfile {
   notes: string;
   referralCode?: string;
   referredByCode?: string;
+  paymentReference?: string;
+  paymentVerified?: boolean;
 }
 
 export interface InvestmentPlanConfig {
@@ -32,6 +34,7 @@ export interface InvestmentPlanConfig {
   planName: string;
   description: string;
   monthlyReturnPct: number; // e.g. 15.0
+  dailyReturnPct?: number; // e.g. 0.5% daily increment
   durationMonths: number; // e.g. 14
   capitalReturnMonthlyPct: number; // e.g. 7.5
   profitMonthlyPct: number; // e.g. 7.5
@@ -48,6 +51,12 @@ export interface WithdrawalRecord {
   clientId: string;
   clientName: string;
   amount: number;
+  grossAmount?: number;
+  partIndex?: number; // 1 or 2
+  feePct?: number; // 3 or 6
+  feeAmount?: number;
+  netAmount?: number;
+  isLate?: boolean;
   monthIndex: number;
   requestDate: string;
   disbursedDate?: string;

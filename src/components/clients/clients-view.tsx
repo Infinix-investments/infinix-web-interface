@@ -296,12 +296,17 @@ export function ClientsView({
                           </div>
                         ) : (
                           <div>
-                            <span className="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 text-[11px] font-semibold border border-slate-700">
-                              No Plan Assigned
+                            <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 text-[11px] font-semibold border border-amber-500/20">
+                              Awaiting Plan Start
                             </span>
-                            <p className="text-[10px] text-slate-500 mt-1">
-                              Awaiting capital allocation
-                            </p>
+                            <div className="mt-1">
+                              <button
+                                onClick={() => onOpenAssignModal(client.id)}
+                                className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#F59E0B] text-black font-extrabold text-[10px] hover:brightness-110 transition-all flex items-center gap-1 shadow-sm"
+                              >
+                                <span>⚡ Start Plan</span>
+                              </button>
+                            </div>
                           </div>
                         )}
                       </td>

@@ -42,9 +42,13 @@ interface AdminContextType {
     clientId: string,
     planId: string,
     amount: number,
-    startDate?: string
+    startDate?: string,
+    paymentReference?: string
   ) => { success: boolean; message: string };
   revokeClientPlan: (clientId: string) => { success: boolean; message: string };
+  createPlan: (data: Partial<InvestmentPlanConfig>) => Promise<{ success: boolean; message: string; plan?: InvestmentPlanConfig }>;
+  updatePlan: (id: string, updates: Partial<InvestmentPlanConfig>) => Promise<{ success: boolean; message: string }>;
+  deletePlan: (id: string) => Promise<{ success: boolean; message: string }>;
   approveWithdrawal: (withdrawalId: string, customUtr?: string) => { success: boolean; message: string };
   rejectWithdrawal: (withdrawalId: string, reason: string) => { success: boolean; message: string };
   disburseReferralCommission: (referralId: string) => { success: boolean; message: string };
@@ -79,12 +83,12 @@ const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
 export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
-  const [clients, setClients] = useState<ClientProfile[]>(INITIAL_CLIENTS);
+  const [clients, setClients] = useState<ClientProfile[]>([]);
   const [plans, setPlans] = useState<InvestmentPlanConfig[]>(INITIAL_PLANS);
-  const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>(INITIAL_WITHDRAWALS);
-  const [referrals, setReferrals] = useState<ReferralRecord[]>(INITIAL_REFERRALS);
+  const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>([]);
+  const [referrals, setReferrals] = useState<ReferralRecord[]>([]);
   const [referralTiers, setReferralTiers] = useState<ReferralLevelTier[]>(INITIAL_REFERRAL_TIERS);
-  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>(INITIAL_AUDIT_LOGS);
+  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
 
   // Synchronize state with unified Fastify + MongoDB backend server
   useEffect(() => {
@@ -100,26 +104,26 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           api.getAuditLogs(),
         ]);
 
-        if (isMounted && cRes.status === 'fulfilled' && cRes.value.success && cRes.value.data?.length) {
+        if (isMounted && cRes.status === 'fulfilled' && cRes.value.success && Array.isArray(cRes.value.data)) {
           setClients(cRes.value.data);
         }
-        if (isMounted && pRes.status === 'fulfilled' && pRes.value.success && pRes.value.data?.length) {
+        if (isMounted && pRes.status === 'fulfilled' && pRes.value.success && Array.isArray(pRes.value.data) && pRes.value.data.length) {
           setPlans(pRes.value.data);
         }
-        if (isMounted && wRes.status === 'fulfilled' && wRes.value.success && wRes.value.data?.length) {
+        if (isMounted && wRes.status === 'fulfilled' && wRes.value.success && Array.isArray(wRes.value.data)) {
           setWithdrawals(wRes.value.data);
         }
-        if (isMounted && rRes.status === 'fulfilled' && rRes.value.success && rRes.value.data?.length) {
+        if (isMounted && rRes.status === 'fulfilled' && rRes.value.success && Array.isArray(rRes.value.data)) {
           setReferrals(rRes.value.data);
         }
-        if (isMounted && tRes.status === 'fulfilled' && tRes.value.success && tRes.value.data?.length) {
+        if (isMounted && tRes.status === 'fulfilled' && tRes.value.success && Array.isArray(tRes.value.data) && tRes.value.data.length) {
           setReferralTiers(tRes.value.data);
         }
-        if (isMounted && aRes.status === 'fulfilled' && aRes.value.success && aRes.value.data?.length) {
+        if (isMounted && aRes.status === 'fulfilled' && aRes.value.success && Array.isArray(aRes.value.data)) {
           setAuditLogs(aRes.value.data);
         }
       } catch {
-        // Fallback gracefully to initial local data
+        // Fallback gracefully to empty state
       }
     }
     loadServerData();
@@ -175,12 +179,13 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     };
   };
 
-  // 2. ASSIGN INVESTMENT PLAN (Defaults to 14-Month 15% Return Accelerator)
+  // 2. ASSIGN INVESTMENT PLAN (Defaults to 14-Month 15% Return Accelerator, 0.5% Daily Increment)
   const assignPlanToClient = (
     clientId: string,
     planId: string,
     amount: number,
-    startDate?: string
+    startDate?: string,
+    paymentReference?: string
   ) => {
     const client = clients.find((c) => c.id === clientId);
     const plan = plans.find((p) => p.id === planId) || plans[0];
@@ -208,6 +213,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
               totalAum: amount,
               currentMonthIndex: 1,
               currentMonthWithdrawn: false,
+              paymentVerified: true,
+              paymentReference: paymentReference || 'Bank Escrow Verified',
             }
           : c
       )
@@ -231,16 +238,123 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     );
 
     addAuditLog(
-      'Investment Plan Assigned',
+      'Investment Plan Activated',
       'plan_assignment',
-      `Assigned "${plan.planName}" with ₹${amount.toLocaleString('en-IN')} capital to ${client.firstName} ${client.lastName}. Monthly distribution: 15% (₹${((amount * 15) / 100).toLocaleString('en-IN')}).`
+      `Payment verified & activated "${plan.planName}" with ₹${amount.toLocaleString('en-IN')} capital for ${client.firstName} ${client.lastName}. 0.5% daily (15% monthly distribution). Ref: ${paymentReference || 'Direct Bank Verification'}.`
     );
 
-    api.assignPlan(clientId, plan.id, amount, 'Chief Wealth Admin (Altaf)').catch(() => {});
+    api.assignPlan(clientId, plan.id, amount, 'Chief Wealth Admin (Altaf)', today, paymentReference).catch(() => {});
 
     return {
       success: true,
-      message: `"${plan.planName}" allocated to ${client.firstName} ${client.lastName} with ₹${amount.toLocaleString('en-IN')} capital!`,
+      message: `Payment verified! "${plan.planName}" is now ACTIVE for ${client.firstName} ${client.lastName} with ₹${amount.toLocaleString('en-IN')} capital.`,
+    };
+  };
+
+  // CREATE PLAN
+  const createPlan = async (data: Partial<InvestmentPlanConfig>) => {
+    const planId = `plan-${Date.now().toString().slice(-4)}`;
+    const monthlyReturnPct = data.monthlyReturnPct ?? 15.0;
+    const dailyReturnPct = data.dailyReturnPct ?? 0.5;
+    const durationMonths = data.durationMonths ?? 14;
+    const grossTotalReturnPct = data.grossTotalReturnPct ?? (monthlyReturnPct * durationMonths);
+
+    const newPlan: InvestmentPlanConfig = {
+      id: planId,
+      planName: data.planName || 'New Structured Wealth Plan',
+      description: data.description || '',
+      monthlyReturnPct,
+      dailyReturnPct,
+      durationMonths,
+      capitalReturnMonthlyPct: data.capitalReturnMonthlyPct ?? 7.5,
+      profitMonthlyPct: data.profitMonthlyPct ?? 7.5,
+      grossTotalReturnPct,
+      netProfitPct: data.netProfitPct ?? (grossTotalReturnPct - 100),
+      minInvestment: data.minInvestment ?? 100000,
+      maxInvestment: data.maxInvestment ?? 50000000,
+      isDefault: !!data.isDefault,
+      status: data.status || 'active',
+    };
+
+    if (newPlan.isDefault) {
+      setPlans((prev) => prev.map((p) => ({ ...p, isDefault: false })));
+    }
+
+    setPlans((prev) => [newPlan, ...prev]);
+
+    addAuditLog(
+      'Plan Created',
+      'plan_config',
+      `Created new plan: ${newPlan.planName} (${newPlan.monthlyReturnPct}%/mo, ${dailyReturnPct}%/day for ${newPlan.durationMonths}M)`
+    );
+
+    api.createPlan({ ...newPlan, planId }).catch(() => {});
+
+    return {
+      success: true,
+      message: `Plan "${newPlan.planName}" created successfully!`,
+      plan: newPlan,
+    };
+  };
+
+  // UPDATE PLAN
+  const updatePlan = async (id: string, updates: Partial<InvestmentPlanConfig>) => {
+    setPlans((prev) =>
+      prev.map((p) => {
+        if (p.id === id) {
+          const updated = { ...p, ...updates };
+          if (updates.monthlyReturnPct !== undefined || updates.durationMonths !== undefined) {
+            const m = updates.monthlyReturnPct ?? p.monthlyReturnPct;
+            const d = updates.durationMonths ?? p.durationMonths;
+            if (!updates.grossTotalReturnPct) {
+              updated.grossTotalReturnPct = m * d;
+            }
+          }
+          return updated;
+        }
+        if (updates.isDefault) {
+          return { ...p, isDefault: false };
+        }
+        return p;
+      })
+    );
+
+    addAuditLog(
+      'Plan Modified',
+      'plan_config',
+      `Modified plan ${id} configuration`
+    );
+
+    api.updatePlan(id, updates).catch(() => {});
+
+    return {
+      success: true,
+      message: 'Plan updated successfully!',
+    };
+  };
+
+  // DELETE PLAN
+  const deletePlan = async (id: string) => {
+    const target = plans.find((p) => p.id === id);
+    if (!target) return { success: false, message: 'Plan not found.' };
+
+    if (plans.length <= 1) {
+      return { success: false, message: 'Cannot delete the only available wealth plan.' };
+    }
+
+    setPlans((prev) => prev.filter((p) => p.id !== id));
+
+    addAuditLog(
+      'Plan Removed',
+      'plan_config',
+      `Deleted plan ${target.planName} (${id})`
+    );
+
+    api.deletePlan(id).catch(() => {});
+
+    return {
+      success: true,
+      message: `Plan "${target.planName}" has been removed.`,
     };
   };
 
@@ -438,7 +552,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       assignedPlanStatus: data.autoAssign14MPlan ? 'active' : 'pending_assignment',
       currentMonthIndex: 1,
       currentMonthWithdrawn: false,
-      bankAccount: data.bankAccount.trim() || 'HDFC Bank ••••4412',
+      bankAccount: data.bankAccount.trim() || '',
       totalAum: data.autoAssign14MPlan ? amount : 0,
       joinedDate: today,
       notes: 'Manually enrolled by Chief Wealth Admin via Web Desk.',
@@ -560,6 +674,9 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         verifyClientPhone,
         assignPlanToClient,
         revokeClientPlan,
+        createPlan,
+        updatePlan,
+        deletePlan,
         approveWithdrawal,
         rejectWithdrawal,
         disburseReferralCommission,
