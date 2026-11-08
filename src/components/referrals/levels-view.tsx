@@ -23,7 +23,7 @@ export function LevelsView() {
   const [toast, setToast] = useState('');
 
   const formatINR = (val: number) => {
-    return '₹' + Math.round(val).toLocaleString('en-IN');
+    return Math.round(val).toLocaleString('en-US') + ' USDT';
   };
 
   const handleSaveTier = () => {
@@ -157,7 +157,7 @@ export function LevelsView() {
       <div className="p-6 rounded-2xl bg-[#0D131F] border border-[#1E293B]">
         <div className="pb-4 border-b border-[#1E293B]">
           <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-            Illustrative 5-Tier Syndicate Yield Flow (Example: ₹10,00,000 14M Plan Allocation • ₹1.5L/mo ROI)
+            Illustrative 5-Tier Syndicate Yield Flow (Example: 10,000 USDT 14M Plan Allocation • 1,500 USDT/mo ROI)
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">
             Every level's payout is calculated strictly as a percentage of the referred investor's contractual monthly ROI (15% yield).
@@ -170,19 +170,19 @@ export function LevelsView() {
               Investor ROI (15%)
             </div>
             <div className="text-lg font-black text-emerald-400 mt-1">
-              ₹1,50,000 / mo
+              1,500 USDT / mo
             </div>
             <div className="text-[10px] text-slate-400 mt-1">
-              Direct to investor's bank
+              Direct to investor
             </div>
           </div>
 
           <div className="p-3.5 rounded-2xl bg-[#080C14] border border-emerald-500/30">
             <div className="text-[10px] font-bold text-slate-400 uppercase">
-              Level 1 (10% ROI)
+              Level 1 (5% ROI)
             </div>
             <div className="text-lg font-black text-emerald-400 mt-1">
-              ₹15,000 / mo
+              75 USDT / mo
             </div>
             <div className="text-[10px] text-slate-400 mt-1">
               Requires 2 active plans
@@ -194,7 +194,7 @@ export function LevelsView() {
               Level 2 (5% ROI)
             </div>
             <div className="text-lg font-black text-blue-400 mt-1">
-              ₹7,500 / mo
+              75 USDT / mo
             </div>
             <div className="text-[10px] text-slate-400 mt-1">
               Requires 4 active plans
@@ -206,7 +206,7 @@ export function LevelsView() {
               Level 3 (3% ROI)
             </div>
             <div className="text-lg font-black text-purple-400 mt-1">
-              ₹4,500 / mo
+              45 USDT / mo
             </div>
             <div className="text-[10px] text-slate-400 mt-1">
               Requires 6 active plans
@@ -218,7 +218,7 @@ export function LevelsView() {
               Level 4 (2% ROI)
             </div>
             <div className="text-lg font-black text-amber-400 mt-1">
-              ₹3,000 / mo
+              30 USDT / mo
             </div>
             <div className="text-[10px] text-slate-400 mt-1">
               Requires 8 active plans
@@ -230,7 +230,7 @@ export function LevelsView() {
               Level 5 (1% ROI)
             </div>
             <div className="text-lg font-black text-[#D4AF37] mt-1">
-              ₹1,500 / mo
+              15 USDT / mo
             </div>
             <div className="text-[10px] text-slate-400 mt-1">
               Requires 10 active plans

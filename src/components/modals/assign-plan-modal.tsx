@@ -34,7 +34,7 @@ export function AssignPlanModal({ clientId: initialClientId, onClose }: AssignPl
   const totalPayout = (allocatedCapital * (targetPlan?.grossTotalReturnPct ?? 210)) / 100; // ₹2,10,000 for 1 Lakh
 
   const formatINR = (val: number) => {
-    return '₹' + Math.round(val).toLocaleString('en-IN');
+    return Math.round(val).toLocaleString('en-US') + ' USDT';
   };
 
   const handleVerifyPhoneFirst = () => {
@@ -153,7 +153,7 @@ export function AssignPlanModal({ clientId: initialClientId, onClose }: AssignPl
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
-              Invested Capital (INR) *
+              Invested Capital (USDT) *
             </label>
             <input
               type="number"

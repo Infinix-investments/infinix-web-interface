@@ -240,14 +240,14 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     addAuditLog(
       'Investment Plan Activated',
       'plan_assignment',
-      `Payment verified & activated "${plan.planName}" with ₹${amount.toLocaleString('en-IN')} capital for ${client.firstName} ${client.lastName}. 0.5% daily (15% monthly distribution). Ref: ${paymentReference || 'Direct Bank Verification'}.`
+      `Payment verified & activated "${plan.planName}" with ${amount.toLocaleString('en-US')} USDT capital for ${client.firstName} ${client.lastName}. 0.5% daily (15% monthly distribution). Ref: ${paymentReference || 'Direct USDT Verification'}.`
     );
 
     api.assignPlan(clientId, plan.id, amount, 'Chief Wealth Admin (Altaf)', today, paymentReference).catch(() => {});
 
     return {
       success: true,
-      message: `Payment verified! "${plan.planName}" is now ACTIVE for ${client.firstName} ${client.lastName} with ₹${amount.toLocaleString('en-IN')} capital.`,
+      message: `Payment verified! "${plan.planName}" is now ACTIVE for ${client.firstName} ${client.lastName} with ${amount.toLocaleString('en-US')} USDT capital.`,
     };
   };
 
@@ -428,14 +428,14 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     addAuditLog(
       'Disbursement Approved & Transferred',
       'withdrawal_approval',
-      `Approved monthly payout of ₹${wd.amount.toLocaleString('en-IN')} for ${wd.clientName} (${wd.bankAccount}). UTR: ${utr}. Non-withdrawal fee waived.`
+      `Approved monthly payout of ${wd.amount.toLocaleString('en-US')} USDT for ${wd.clientName} (${wd.bankAccount}). TX: ${utr}. Non-withdrawal fee waived.`
     );
 
-    api.updateWithdrawalStatus(withdrawalId, 'disbursed', utr, 'Disbursed via bank transfer', 'Chief Wealth Admin (Altaf)').catch(() => {});
+    api.updateWithdrawalStatus(withdrawalId, 'disbursed', utr, 'Disbursed via USDT transfer', 'Chief Wealth Admin (Altaf)').catch(() => {});
 
     return {
       success: true,
-      message: `Payout of ₹${wd.amount.toLocaleString('en-IN')} approved and disbursed to ${wd.bankAccount}! UTR: ${utr}`,
+      message: `Payout of ${wd.amount.toLocaleString('en-US')} USDT approved and disbursed to ${wd.bankAccount}! TX: ${utr}`,
     };
   };
 
@@ -489,12 +489,12 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     addAuditLog(
       'Referral Incentive Disbursed',
       'referral_management',
-      `Disbursed monthly referral yield of ₹${ref.monthlyCommissionAmount.toLocaleString('en-IN')} (Level ${ref.level}) to ${ref.referrerName}. UTR: ${utr}.`
+      `Disbursed monthly referral yield of ${ref.monthlyCommissionAmount.toLocaleString('en-US')} USDT (Level ${ref.level}) to ${ref.referrerName}. TX: ${utr}.`
     );
 
     return {
       success: true,
-      message: `Referral commission of ₹${ref.monthlyCommissionAmount.toLocaleString('en-IN')} successfully settled to ${ref.referrerName}!`,
+      message: `Referral commission of ${ref.monthlyCommissionAmount.toLocaleString('en-US')} USDT successfully settled to ${ref.referrerName}!`,
     };
   };
 
@@ -596,7 +596,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       'client_verification',
       `Enrolled new investor ${newClient.firstName} ${newClient.lastName} (${newClient.email}) with ${
         data.autoAssign14MPlan
-          ? `INFINIX 14-Month 15% Return Accelerator (₹${amount.toLocaleString('en-IN')})`
+          ? `INFINIX 14-Month 15% Return Accelerator (${amount.toLocaleString('en-US')} USDT)`
           : 'Pending Plan Assignment'
       }.`
     );

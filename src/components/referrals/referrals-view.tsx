@@ -34,8 +34,9 @@ export function ReferralsView() {
     }
   };
 
-  const formatINR = (val: number) => {
-    return '₹' + Math.round(val).toLocaleString('en-IN');
+  const formatINR = (val?: number) => {
+    if (val === undefined || val === null || isNaN(val)) return '—';
+    return Math.round(val).toLocaleString('en-US') + ' USDT';
   };
 
   const filteredReferrals = referrals.filter((r) => {
@@ -288,7 +289,7 @@ export function ReferralsView() {
                         </div>
                       ) : (
                         <div>
-                          <span className="text-slate-500">₹0 Capital</span>
+                          <span className="text-slate-500">0 USDT Capital</span>
                           <div className="text-[10px] text-amber-400">
                             Awaiting Plan Assignment
                           </div>

@@ -12,7 +12,7 @@ export const INITIAL_PLANS: InvestmentPlanConfig[] = [
     id: 'plan-14m-15pct',
     planName: 'INFINIX 14-Month Wealth Accelerator',
     description:
-      'Private contractual high-yield wealth tranche providing 0.5% daily increment (15.0% monthly distribution) over a 14-month contractual period. Total gross payout: 210% of invested capital (e.g. ₹1,00,000 becomes ₹2,10,000).',
+      'Private contractual high-yield wealth tranche providing 0.5% daily increment (15.0% monthly distribution) over a 14-month contractual period. Total gross payout: 210% of invested capital (e.g. 100,000 USDT becomes 210,000 USDT).',
     monthlyReturnPct: 15.0,
     dailyReturnPct: 0.5,
     durationMonths: 14,
@@ -29,7 +29,7 @@ export const INITIAL_PLANS: InvestmentPlanConfig[] = [
     id: 'plan-custom-flexible',
     planName: 'INFINIX Bespoke Institutional Tranche',
     description:
-      'Customized structured vehicle for family offices and institutional allocations exceeding ₹1.0 Cr with customized tenure and distribution frequency.',
+      'Customized structured vehicle for family offices and institutional allocations exceeding 100,000 USDT with customized tenure and distribution frequency.',
     monthlyReturnPct: 12.5,
     dailyReturnPct: 0.41,
     durationMonths: 18,

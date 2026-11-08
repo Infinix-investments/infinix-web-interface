@@ -88,7 +88,7 @@ export function ClientsView({
 
   const formatINR = (val?: number) => {
     if (!val) return '—';
-    return '₹' + Math.round(val).toLocaleString('en-IN');
+    return Math.round(val).toLocaleString('en-US') + ' USDT';
   };
 
   return (
@@ -355,7 +355,7 @@ export function ClientsView({
                           <span>{client.bankAccount}</span>
                         </div>
                         <div className="text-[10px] text-emerald-400 mt-0.5">
-                          Fee Waived (₹0.00)
+                          Fee Waived (0.00 USDT)
                         </div>
                       </td>
 

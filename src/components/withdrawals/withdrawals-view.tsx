@@ -118,8 +118,9 @@ export function WithdrawalsView() {
 
   const totalDisbursedAmount = settledList.reduce((sum, w) => sum + w.amount, 0);
 
-  const formatINR = (val: number) => {
-    return '₹' + Math.round(val).toLocaleString('en-IN');
+  const formatINR = (val?: number) => {
+    if (val === undefined || val === null || isNaN(val)) return '—';
+    return Math.round(val).toLocaleString('en-US') + ' USDT';
   };
 
   return (
