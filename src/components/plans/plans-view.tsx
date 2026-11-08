@@ -624,10 +624,12 @@ export function PlansView({ onOpenAssignModal }: PlansViewProps) {
                     type="number"
                     step="1"
                     min="0"
+                    placeholder="e.g. 500"
                     value={formData.minInvestment}
                     onChange={(e) => setFormData({ ...formData, minInvestment: Number(e.target.value) })}
                     className="w-full px-3.5 py-2 rounded-xl bg-[#080C14] border border-[#1E293B] text-white text-xs focus:outline-none focus:border-[#D4AF37]"
                   />
+                  <span className="text-[10px] text-slate-400">e.g. 500 USDT (no minimum cap)</span>
                 </div>
 
                 <div className="space-y-1.5">
