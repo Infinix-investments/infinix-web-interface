@@ -6,16 +6,28 @@ import { useAdmin } from '@/context/admin-context';
 
 interface AssignPlanModalProps {
   clientId?: string;
+  planId?: string;
   onClose: () => void;
 }
 
-export function AssignPlanModal({ clientId: initialClientId, onClose }: AssignPlanModalProps) {
+export function AssignPlanModal({ clientId: initialClientId, planId: initialPlanId, onClose }: AssignPlanModalProps) {
   const { clients, plans, assignPlanToClient, verifyClientPhone } = useAdmin();
 
   const [selectedClientId, setSelectedClientId] = useState<string>(
     initialClientId || clients[0]?.id || ''
   );
-  const [selectedPlanId, setSelectedPlanId] = useState<string>(plans[0]?.id || '');
+  const [selectedPlanId, setSelectedPlanId] = useState<string>(
+    initialPlanId || plans[0]?.id || ''
+  );
+
+  React.useEffect(() => {
+    if (initialPlanId) {
+      setSelectedPlanId(initialPlanId);
+    } else if (!selectedPlanId && plans.length > 0) {
+      setSelectedPlanId(plans[0].id);
+    }
+  }, [initialPlanId, plans]);
+
   const [allocatedCapital, setAllocatedCapital] = useState<number>(1000); // Default 1,000 USDT
   const [startDate, setStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [isPaymentVerified, setIsPaymentVerified] = useState<boolean>(true);
@@ -23,7 +35,10 @@ export function AssignPlanModal({ clientId: initialClientId, onClose }: AssignPl
   const [toast, setToast] = useState('');
 
   const targetClient = clients.find((c) => c.id === selectedClientId);
-  const targetPlan = plans.find((p) => p.id === selectedPlanId) || plans[0];
+  const targetPlan =
+    plans.find((p) => p.id === selectedPlanId) ||
+    plans.find((p) => (p as any).planId === selectedPlanId) ||
+    plans[0];
 
   const dailyRate = targetPlan?.dailyReturnPct ?? 0.5;
   const monthlyRate = targetPlan?.monthlyReturnPct ?? 15.0;
@@ -77,7 +92,7 @@ export function AssignPlanModal({ clientId: initialClientId, onClose }: AssignPl
                 Verify Payment & Start Client Plan
               </h3>
               <p className="text-xs text-slate-400">
-                Confirm received capital and activate 0.5% daily (15% monthly) accruals
+                Confirm received capital and activate {dailyRate}% daily ({monthlyRate}% monthly) accruals for {durationMonths} months
               </p>
             </div>
           </div>
@@ -192,7 +207,7 @@ export function AssignPlanModal({ clientId: initialClientId, onClose }: AssignPl
               className="w-full px-3.5 py-2.5 rounded-xl bg-[#080C14] border border-[#1E293B] text-white text-xs focus:outline-none focus:border-[#D4AF37]"
             />
             <p className="text-[10px] text-slate-400 pt-1">
-              Daily 0.5% increment accrues starting from this date.
+              Daily {dailyRate}% increment accrues starting from this date for {durationMonths} months.
             </p>
           </div>
         </div>

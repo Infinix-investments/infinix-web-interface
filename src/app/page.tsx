@@ -19,11 +19,13 @@ function AdminDeskContent() {
 
   // Modal States
   const [assignModalClientId, setAssignModalClientId] = useState<string | null>(null);
+  const [assignModalPlanId, setAssignModalPlanId] = useState<string | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showNewClientModal, setShowNewClientModal] = useState(false);
 
-  const handleOpenAssignModal = (clientId?: string) => {
+  const handleOpenAssignModal = (clientId?: string, planId?: string) => {
     setAssignModalClientId(clientId || null);
+    setAssignModalPlanId(planId || null);
     setShowAssignModal(true);
   };
 
@@ -62,9 +64,11 @@ function AdminDeskContent() {
       {showAssignModal && (
         <AssignPlanModal
           clientId={assignModalClientId || undefined}
+          planId={assignModalPlanId || undefined}
           onClose={() => {
             setShowAssignModal(false);
             setAssignModalClientId(null);
+            setAssignModalPlanId(null);
           }}
         />
       )}
