@@ -63,6 +63,7 @@ function AdminDeskContent() {
       {/* Modals */}
       {showAssignModal && (
         <AssignPlanModal
+          key={`${assignModalClientId || 'any'}-${assignModalPlanId || 'any'}`}
           clientId={assignModalClientId || undefined}
           planId={assignModalPlanId || undefined}
           onClose={() => {

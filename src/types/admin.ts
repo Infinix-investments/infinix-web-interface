@@ -1,10 +1,11 @@
 export type KYCStatus = 'verified' | 'pending' | 'rejected';
 export type PlanStatus = 'active' | 'pending_assignment' | 'matured' | 'cancelled';
 export type WithdrawalStatus = 'pending_approval' | 'disbursed' | 'rejected';
-export type ReferralStatus = 'pending_activation' | 'active' | 'completed' | 'cancelled';
+export type ReferralStatus = 'pending_activation' | 'pending' | 'active' | 'completed' | 'cancelled';
 
 export interface ClientProfile {
   id: string;
+  clientId?: string;
   firstName: string;
   lastName: string;
   email: string;

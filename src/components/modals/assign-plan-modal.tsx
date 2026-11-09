@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, TrendingUp, AlertCircle, ShieldCheck, Calendar, DollarSign, FileCheck } from 'lucide-react';
 import { useAdmin } from '@/context/admin-context';
+import { api } from '@/services/api';
 
 interface AssignPlanModalProps {
   clientId?: string;
@@ -13,77 +14,68 @@ interface AssignPlanModalProps {
 export function AssignPlanModal({ clientId: initialClientId, planId: initialPlanId, onClose }: AssignPlanModalProps) {
   const { clients, plans, assignPlanToClient, verifyClientPhone } = useAdmin();
 
-  const resolveClientPlanId = (client?: (typeof clients)[0], requestedPlanId?: string) => {
-    if (requestedPlanId) {
-      const match = plans.find(
-        (p) => p.id === requestedPlanId || (p as any).planId === requestedPlanId
-      );
-      if (match) return match.id;
-      return requestedPlanId;
-    }
-    if (client?.assignedPlanId) {
-      const match = plans.find(
-        (p) =>
-          p.id === client.assignedPlanId ||
-          (p as any).planId === client.assignedPlanId ||
-          (client.assignedPlanName && p.planName.toLowerCase() === client.assignedPlanName.toLowerCase())
-      );
-      if (match) return match.id;
-      return client.assignedPlanId;
-    }
-    return plans[0]?.id || '';
-  };
-
+  // Find initial client
   const initialClient = clients.find(
     (c) => c.id === initialClientId || c.clientId === initialClientId
   );
 
-  const [selectedClientId, setSelectedClientId] = useState<string>(
-    initialClientId || clients[0]?.id || ''
-  );
-  const [selectedPlanId, setSelectedPlanId] = useState<string>(() => {
-    return resolveClientPlanId(initialClient, initialPlanId);
+  const [selectedClientId, setSelectedClientId] = useState<string>(() => {
+    return initialClientId || clients[0]?.id || '';
   });
+
+  // Preselect the plan cleanly:
+  // 1) Explicit planId if opened from Plans tab
+  // 2) Client's currently assigned plan if modifying/viewing an active client
+  // 3) Default to first plan in plans
+  const [selectedPlanId, setSelectedPlanId] = useState<string>(() => {
+    if (initialPlanId) {
+      const match = plans.find(
+        (p) => p.id === initialPlanId || (p as any).planId === initialPlanId
+      );
+      if (match) return match.id;
+    }
+    if (initialClient?.assignedPlanId) {
+      const match = plans.find(
+        (p) =>
+          p.id === initialClient.assignedPlanId ||
+          (p as any).planId === initialClient.assignedPlanId ||
+          (initialClient.assignedPlanName &&
+            p.planName.toLowerCase() === initialClient.assignedPlanName.toLowerCase())
+      );
+      if (match) return match.id;
+    }
+    return plans[0]?.id || '';
+  });
+
   const [allocatedCapital, setAllocatedCapital] = useState<number>(() => {
     return initialClient?.assignedPlanAmount && initialClient.assignedPlanAmount > 0
       ? initialClient.assignedPlanAmount
       : 1000;
   });
+
   const [startDate, setStartDate] = useState<string>(() => {
     return initialClient?.assignedPlanStartDate || new Date().toISOString().split('T')[0];
   });
+
   const [isPaymentVerified, setIsPaymentVerified] = useState<boolean>(true);
   const [paymentReference, setPaymentReference] = useState<string>('');
   const [toast, setToast] = useState('');
+  const [phoneInput, setPhoneInput] = useState<string>(() => initialClient?.phone || '');
 
-  React.useEffect(() => {
-    const client = clients.find(
-      (c) => c.id === selectedClientId || c.clientId === selectedClientId
-    );
-    if (client) {
-      const planToSelect = resolveClientPlanId(client, initialPlanId);
-      if (planToSelect) {
-        setSelectedPlanId(planToSelect);
-      }
-      if (client.assignedPlanAmount && client.assignedPlanAmount > 0) {
-        setAllocatedCapital(client.assignedPlanAmount);
-      }
-      if (client.assignedPlanStartDate) {
-        setStartDate(client.assignedPlanStartDate);
-      }
-    } else if (initialPlanId) {
-      setSelectedPlanId(initialPlanId);
+  // Only fallback if selectedPlanId was empty on mount before plans loaded from server
+  useEffect(() => {
+    if (!selectedPlanId && plans.length > 0) {
+      setSelectedPlanId(plans[0].id);
     }
-  }, [selectedClientId, initialPlanId, plans, clients]);
+  }, [plans, selectedPlanId]);
 
   const targetClient = clients.find(
     (c) => c.id === selectedClientId || c.clientId === selectedClientId
   );
+
+  // Directly find the selected plan. NEVER fallback to client's old plan name!
   const targetPlan =
-    plans.find((p) => p.id === selectedPlanId) ||
-    plans.find((p) => (p as any).planId === selectedPlanId) ||
-    (targetClient?.assignedPlanName &&
-      plans.find((p) => p.planName.toLowerCase() === targetClient.assignedPlanName!.toLowerCase())) ||
+    plans.find((p) => p.id === selectedPlanId || (p as any).planId === selectedPlanId) ||
     plans[0];
 
   const handleClientChange = (clientId: string) => {
@@ -92,9 +84,21 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
       (c) => c.id === clientId || c.clientId === clientId
     );
     if (client) {
-      const planToSelect = resolveClientPlanId(client);
-      if (planToSelect) {
-        setSelectedPlanId(planToSelect);
+      if (client.phone) {
+        setPhoneInput(client.phone);
+      }
+      // If client has an assigned plan, pre-select it
+      if (client.assignedPlanId) {
+        const match = plans.find(
+          (p) =>
+            p.id === client.assignedPlanId ||
+            (p as any).planId === client.assignedPlanId ||
+            (client.assignedPlanName &&
+              p.planName.toLowerCase() === client.assignedPlanName.toLowerCase())
+        );
+        if (match) {
+          setSelectedPlanId(match.id);
+        }
       }
       if (client.assignedPlanAmount && client.assignedPlanAmount > 0) {
         setAllocatedCapital(client.assignedPlanAmount);
@@ -108,13 +112,31 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
   const dailyRate = targetPlan?.dailyReturnPct ?? 0.5;
   const monthlyRate = targetPlan?.monthlyReturnPct ?? 15.0;
   const durationMonths = targetPlan?.durationMonths ?? 14;
+  const grossTotalReturnPct = targetPlan?.grossTotalReturnPct ?? (monthlyRate * durationMonths);
 
-  const dailyGrowth = (allocatedCapital * dailyRate) / 100; // ₹500/day for 1 Lakh
-  const monthlyPayout = (allocatedCapital * monthlyRate) / 100; // ₹15,000/mo for 1 Lakh
-  const totalPayout = (allocatedCapital * (targetPlan?.grossTotalReturnPct ?? 210)) / 100; // ₹2,10,000 for 1 Lakh
+  const dailyGrowth = (allocatedCapital * dailyRate) / 100;
+  const monthlyPayout = (allocatedCapital * monthlyRate) / 100;
+  const totalPayout = (allocatedCapital * grossTotalReturnPct) / 100;
 
   const formatINR = (val: number) => {
     return Math.round(val).toLocaleString('en-US') + ' USDT';
+  };
+
+  const handleSavePhoneAndVerify = async () => {
+    if (!targetClient) return;
+    const clean = phoneInput.trim();
+    if (clean.length < 7) {
+      setToast('⚠️ Please enter a valid mobile phone number (min 7 digits).');
+      return;
+    }
+    try {
+      await api.updateClient(targetClient.id, { phone: clean, isPhoneVerified: true, kycStatus: 'verified' });
+      targetClient.phone = clean;
+      targetClient.isPhoneVerified = true;
+      setToast(`✓ Phone number ${clean} verified for ${targetClient.firstName}!`);
+    } catch {
+      setToast('⚠️ Failed to save phone on server.');
+    }
   };
 
   const handleVerifyPhoneFirst = () => {
@@ -126,17 +148,18 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
     const res = verifyClientPhone(targetClient.id);
     if (!res.success) {
       setToast(res.message);
+    } else {
+      setToast(res.message);
     }
   };
 
   const handleStartPlan = () => {
-    if (!targetClient) return;
-    if (!targetClient.phone || targetClient.phone.trim().length < 7) {
-      setToast('⚠️ Investor must submit a mobile phone number before activating a plan.');
+    if (!targetClient) {
+      setToast('⚠️ Please select a valid investor client.');
       return;
     }
-    if (!targetClient.isPhoneVerified) {
-      setToast('⚠️ Investor phone must be verified first.');
+    if (!targetPlan) {
+      setToast('⚠️ Please select a valid wealth plan.');
       return;
     }
     if (!isPaymentVerified) {
@@ -144,19 +167,31 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
       return;
     }
 
-    const refNote = paymentReference.trim() || 'Bank Transfer Verified';
-    const res = assignPlanToClient(targetClient.id, targetPlan.id, allocatedCapital, startDate, refNote);
+    const refNote = paymentReference.trim() || 'Direct USDT Escrow Verified';
+    const planToAssignId = targetPlan.id || (targetPlan as any).planId;
+    const clientToAssignId = targetClient.id || (targetClient as any).clientId;
+
+    const res = assignPlanToClient(
+      clientToAssignId,
+      planToAssignId,
+      allocatedCapital,
+      startDate,
+      refNote
+    );
+
     if (res.success) {
       setToast(res.message);
       setTimeout(() => {
         onClose();
-      }, 1200);
+      }, 1000);
+    } else {
+      setToast(res.message);
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-xl bg-[#0D131F] border border-[#1E293B] rounded-3xl p-6 sm:p-8 space-y-5 shadow-2xl relative">
+      <div className="w-full max-w-xl bg-[#0D131F] border border-[#1E293B] rounded-3xl p-6 sm:p-8 space-y-5 shadow-2xl relative max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-[#1E293B]">
           <div className="flex items-center gap-2.5">
@@ -207,12 +242,37 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
             ))}
           </select>
 
-          {targetClient && !targetClient.isPhoneVerified && (
+          {targetClient && (!targetClient.phone || targetClient.phone.trim().length < 7) && (
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+              <div className="text-[11px] text-amber-300">
+                ⚠️ Investor has no mobile phone submitted yet. You can attach & verify one now:
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="+91 98000 00000"
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                  className="flex-1 px-3 py-1.5 rounded-lg bg-[#080C14] border border-[#1E293B] text-white text-xs focus:outline-none focus:border-[#D4AF37]"
+                />
+                <button
+                  type="button"
+                  onClick={handleSavePhoneAndVerify}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-500 text-black font-bold text-xs shrink-0"
+                >
+                  Save & Verify
+                </button>
+              </div>
+            </div>
+          )}
+
+          {targetClient && targetClient.phone && targetClient.phone.trim().length >= 7 && !targetClient.isPhoneVerified && (
             <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-2">
               <div className="text-[11px] text-amber-300">
                 ⚠️ Investor phone number ({targetClient.phone}) is not verified yet.
               </div>
               <button
+                type="button"
                 onClick={handleVerifyPhoneFirst}
                 className="px-2.5 py-1 rounded-lg bg-emerald-500 text-black font-bold text-[11px] shrink-0"
               >
@@ -321,16 +381,16 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
           </div>
         </div>
 
-        {/* Calculated Breakdown Card */}
+        {/* Calculated Breakdown Card (Strictly Dynamic) */}
         <div className="p-4 rounded-2xl bg-[#080C14] border border-[#D4AF37]/30 space-y-2 text-xs">
           <div className="flex items-center justify-between text-slate-400">
-            <span>Daily Increment (0.5%):</span>
+            <span>Daily Increment ({dailyRate}%):</span>
             <span className="font-bold text-emerald-400 text-sm">
               +{formatINR(dailyGrowth)} / day
             </span>
           </div>
           <div className="flex items-center justify-between text-slate-400">
-            <span>Monthly Return (15.0%):</span>
+            <span>Monthly Return ({monthlyRate}%):</span>
             <span className="font-bold text-[#D4AF37]">
               {formatINR(monthlyPayout)} / month
             </span>
@@ -340,7 +400,7 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
             <span className="text-white font-semibold">{durationMonths} Months</span>
           </div>
           <div className="pt-2 border-t border-[#1E293B] flex items-center justify-between">
-            <span className="font-bold text-white">Total Gross Payout (210%):</span>
+            <span className="font-bold text-white">Total Gross Payout ({grossTotalReturnPct}%):</span>
             <span className="font-black text-emerald-400 text-sm">
               {formatINR(totalPayout)}
             </span>

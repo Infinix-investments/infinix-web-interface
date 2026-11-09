@@ -247,29 +247,24 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     startDate?: string,
     paymentReference?: string,
   ) => {
-    const client = clients.find((c) => c.id === clientId);
+    const client = clients.find((c) => c.id === clientId || c.clientId === clientId);
     const plan =
       plans.find((p) => p.id === planId) ||
-      plans.find((p) => (p as any).planId === planId) ||
-      plans[0];
+      plans.find((p) => (p as any).planId === planId);
 
     if (!client) return { success: false, message: "Client not found." };
-    if (!client.isPhoneVerified) {
-      return {
-        success: false,
-        message:
-          "Client phone number must be verified before assigning an investment plan.",
-      };
-    }
+    if (!plan) return { success: false, message: "Selected plan not found." };
 
+    const resolvedClientId = client.clientId || client.id;
+    const resolvedPlanId = plan.id || (plan as any).planId;
     const today = startDate || new Date().toISOString().split("T")[0];
 
     setClients((prev) =>
       prev.map((c) =>
-        c.id === clientId
+        c.id === clientId || c.clientId === clientId || c.id === resolvedClientId || c.clientId === resolvedClientId
           ? {
               ...c,
-              assignedPlanId: plan.id,
+              assignedPlanId: resolvedPlanId,
               assignedPlanName: plan.planName,
               assignedPlanAmount: amount,
               assignedPlanStartDate: today,
@@ -287,7 +282,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     // If client was referred by someone, update referral record to active
     setReferrals((prev) =>
       prev.map((r) => {
-        if (r.refereeId === clientId) {
+        if (r.refereeId === clientId || r.refereeId === resolvedClientId) {
           const comm = (amount * r.commissionRatePct) / 100;
           return {
             ...r,
@@ -309,15 +304,17 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
     api
       .assignPlan(
-        clientId,
-        plan.id,
+        resolvedClientId,
+        resolvedPlanId,
         amount,
         "Chief Wealth Admin (Altaf)",
         today,
         paymentReference,
         plan.planName,
       )
-      .catch(() => {});
+      .catch((err) => {
+        console.error("Failed to assign plan on server:", err);
+      });
 
     return {
       success: true,
