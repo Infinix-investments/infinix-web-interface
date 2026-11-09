@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import React from 'react';
+import React from "react";
 import {
   TrendingUp,
   Users,
@@ -12,8 +12,8 @@ import {
   FileText,
   DollarSign,
   ChevronRight,
-} from 'lucide-react';
-import { useAdmin } from '@/context/admin-context';
+} from "lucide-react";
+import { useAdmin } from "@/context/admin-context";
 
 interface OverviewViewProps {
   onOpenAssignModal: (clientId: string) => void;
@@ -30,10 +30,12 @@ export function OverviewView({ onOpenAssignModal }: OverviewViewProps) {
   } = useAdmin();
 
   const pendingVerificationClients = clients.filter((c) => !c.isPhoneVerified);
-  const pendingWithdrawals = withdrawals.filter((w) => w.status === 'pending_approval');
+  const pendingWithdrawals = withdrawals.filter(
+    (w) => w.status === "pending_approval",
+  );
 
   const formatINR = (val: number) => {
-    return val.toLocaleString('en-US') + ' USDT';
+    return val.toLocaleString("en-US") + " USDT";
   };
 
   return (
@@ -73,7 +75,7 @@ export function OverviewView({ onOpenAssignModal }: OverviewViewProps) {
           </div>
           <div className="mt-3">
             <h2 className="text-2xl font-black text-white tracking-tight">
-              {stats.activeInvestorsCount}{' '}
+              {stats.activeInvestorsCount}{" "}
               <span className="text-sm font-normal text-slate-400">
                 / {clients.length} Total
               </span>
@@ -116,7 +118,7 @@ export function OverviewView({ onOpenAssignModal }: OverviewViewProps) {
           </div>
           <div className="mt-3">
             <h2 className="text-2xl font-black text-white tracking-tight">
-              {stats.pendingWithdrawalCount}{' '}
+              {stats.pendingWithdrawalCount}{" "}
               <span className="text-sm font-normal text-slate-400">
                 ({formatINR(stats.pendingWithdrawalTotal)})
               </span>
@@ -140,23 +142,25 @@ export function OverviewView({ onOpenAssignModal }: OverviewViewProps) {
             </h3>
             <p className="text-xs text-slate-300 leading-relaxed">
               Every client enrolled in this plan receives a fixed 15.0% monthly
-              disbursement: <strong>7.5% systematic capital return</strong> +{' '}
-              <strong>7.5% net profit</strong>. Across 14 months, the client recovers
-              100% of their principal plus 105% profit (
-              <span className="text-[#D4AF37] font-bold">210% gross payout</span>
+              disbursement: <strong>7.5% systematic capital return</strong> +{" "}
+              <strong>7.5% net profit</strong>. Across 14 months, the client
+              recovers 100% of their principal plus 105% profit (
+              <span className="text-[#D4AF37] font-bold">
+                210% gross payout
+              </span>
               ).
             </p>
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
             <button
-              onClick={() => setActiveTab('plans')}
+              onClick={() => setActiveTab("plans")}
               className="px-4 py-2.5 rounded-xl bg-[#080C14] border border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#D4AF37]/10 font-bold text-xs transition-all"
             >
               Simulate Tranche
             </button>
             <button
-              onClick={() => setActiveTab('clients')}
+              onClick={() => setActiveTab("clients")}
               className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#F59E0B] text-black font-extrabold text-xs hover:brightness-110 active:scale-95 transition-all shadow-md shadow-[#D4AF37]/20"
             >
               Assign to User
@@ -177,7 +181,7 @@ export function OverviewView({ onOpenAssignModal }: OverviewViewProps) {
               </h3>
             </div>
             <button
-              onClick={() => setActiveTab('clients')}
+              onClick={() => setActiveTab("clients")}
               className="text-xs text-[#D4AF37] hover:underline font-semibold flex items-center gap-1"
             >
               View All <ChevronRight className="w-3.5 h-3.5" />
@@ -229,7 +233,7 @@ export function OverviewView({ onOpenAssignModal }: OverviewViewProps) {
               </h3>
             </div>
             <button
-              onClick={() => setActiveTab('withdrawals')}
+              onClick={() => setActiveTab("withdrawals")}
               className="text-xs text-[#D4AF37] hover:underline font-semibold flex items-center gap-1"
             >
               Disbursement Desk <ChevronRight className="w-3.5 h-3.5" />
@@ -264,7 +268,7 @@ export function OverviewView({ onOpenAssignModal }: OverviewViewProps) {
                       {formatINR(wd.amount)}
                     </div>
                     <button
-                      onClick={() => setActiveTab('withdrawals')}
+                      onClick={() => setActiveTab("withdrawals")}
                       className="mt-1 px-3 py-1 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#F59E0B] text-black font-bold text-[11px] hover:brightness-110"
                     >
                       Process Payout
@@ -284,7 +288,7 @@ export function OverviewView({ onOpenAssignModal }: OverviewViewProps) {
             Recent Administrative Actions
           </h3>
           <button
-            onClick={() => setActiveTab('audit')}
+            onClick={() => setActiveTab("audit")}
             className="text-xs text-[#D4AF37] hover:underline font-semibold"
           >
             View Complete Log ({auditLogs.length})
@@ -293,7 +297,10 @@ export function OverviewView({ onOpenAssignModal }: OverviewViewProps) {
 
         <div className="mt-4 divide-y divide-[#1E293B]">
           {auditLogs.slice(0, 4).map((log) => (
-            <div key={log.id} className="py-3 flex items-start justify-between gap-4">
+            <div
+              key={log.id}
+              className="py-3 flex items-start justify-between gap-4"
+            >
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-white">
@@ -315,4 +322,3 @@ export function OverviewView({ onOpenAssignModal }: OverviewViewProps) {
     </div>
   );
 }
-
