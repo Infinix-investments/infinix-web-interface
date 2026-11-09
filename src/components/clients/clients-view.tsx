@@ -29,7 +29,7 @@ import {
 } from '@/utils/referral';
 
 interface ClientsViewProps {
-  onOpenAssignModal: (clientId: string) => void;
+  onOpenAssignModal: (clientId?: string, planId?: string) => void;
   onOpenNewClientModal: () => void;
 }
 
@@ -301,7 +301,7 @@ export function ClientsView({
                             </span>
                             <div className="mt-1">
                               <button
-                                onClick={() => onOpenAssignModal(client.id)}
+                                onClick={() => onOpenAssignModal(client.id, client.assignedPlanId)}
                                 className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#F59E0B] text-black font-extrabold text-[10px] hover:brightness-110 transition-all flex items-center gap-1 shadow-sm"
                               >
                                 <span>⚡ Start Plan</span>
@@ -383,7 +383,7 @@ export function ClientsView({
                           ) : client.assignedPlanStatus === 'active' ? (
                             <div className="flex items-center gap-1.5">
                               <button
-                                onClick={() => onOpenAssignModal(client.id)}
+                                onClick={() => onOpenAssignModal(client.id, client.assignedPlanId)}
                                 className="px-2.5 py-1.5 rounded-lg bg-[#080C14] border border-[#1E293B] text-slate-300 hover:text-white font-semibold text-xs transition-all"
                               >
                                 Modify
@@ -398,7 +398,7 @@ export function ClientsView({
                             </div>
                           ) : (
                             <button
-                              onClick={() => onOpenAssignModal(client.id)}
+                              onClick={() => onOpenAssignModal(client.id, client.assignedPlanId)}
                               className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#F59E0B] text-black font-extrabold text-xs hover:brightness-110 active:scale-95 transition-all shadow-md shadow-[#D4AF37]/20"
                             >
                               ⚡ Assign Plan
