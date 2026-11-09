@@ -13,32 +13,97 @@ interface AssignPlanModalProps {
 export function AssignPlanModal({ clientId: initialClientId, planId: initialPlanId, onClose }: AssignPlanModalProps) {
   const { clients, plans, assignPlanToClient, verifyClientPhone } = useAdmin();
 
+  const resolveClientPlanId = (client?: (typeof clients)[0], requestedPlanId?: string) => {
+    if (requestedPlanId) {
+      const match = plans.find(
+        (p) => p.id === requestedPlanId || (p as any).planId === requestedPlanId
+      );
+      if (match) return match.id;
+      return requestedPlanId;
+    }
+    if (client?.assignedPlanId) {
+      const match = plans.find(
+        (p) =>
+          p.id === client.assignedPlanId ||
+          (p as any).planId === client.assignedPlanId ||
+          (client.assignedPlanName && p.planName.toLowerCase() === client.assignedPlanName.toLowerCase())
+      );
+      if (match) return match.id;
+      return client.assignedPlanId;
+    }
+    return plans[0]?.id || '';
+  };
+
+  const initialClient = clients.find(
+    (c) => c.id === initialClientId || c.clientId === initialClientId
+  );
+
   const [selectedClientId, setSelectedClientId] = useState<string>(
     initialClientId || clients[0]?.id || ''
   );
-  const [selectedPlanId, setSelectedPlanId] = useState<string>(
-    initialPlanId || plans[0]?.id || ''
-  );
-
-  React.useEffect(() => {
-    if (initialPlanId) {
-      setSelectedPlanId(initialPlanId);
-    } else if (!selectedPlanId && plans.length > 0) {
-      setSelectedPlanId(plans[0].id);
-    }
-  }, [initialPlanId, plans]);
-
-  const [allocatedCapital, setAllocatedCapital] = useState<number>(1000); // Default 1,000 USDT
-  const [startDate, setStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>(() => {
+    return resolveClientPlanId(initialClient, initialPlanId);
+  });
+  const [allocatedCapital, setAllocatedCapital] = useState<number>(() => {
+    return initialClient?.assignedPlanAmount && initialClient.assignedPlanAmount > 0
+      ? initialClient.assignedPlanAmount
+      : 1000;
+  });
+  const [startDate, setStartDate] = useState<string>(() => {
+    return initialClient?.assignedPlanStartDate || new Date().toISOString().split('T')[0];
+  });
   const [isPaymentVerified, setIsPaymentVerified] = useState<boolean>(true);
   const [paymentReference, setPaymentReference] = useState<string>('');
   const [toast, setToast] = useState('');
 
-  const targetClient = clients.find((c) => c.id === selectedClientId);
+  React.useEffect(() => {
+    const client = clients.find(
+      (c) => c.id === selectedClientId || c.clientId === selectedClientId
+    );
+    if (client) {
+      const planToSelect = resolveClientPlanId(client, initialPlanId);
+      if (planToSelect) {
+        setSelectedPlanId(planToSelect);
+      }
+      if (client.assignedPlanAmount && client.assignedPlanAmount > 0) {
+        setAllocatedCapital(client.assignedPlanAmount);
+      }
+      if (client.assignedPlanStartDate) {
+        setStartDate(client.assignedPlanStartDate);
+      }
+    } else if (initialPlanId) {
+      setSelectedPlanId(initialPlanId);
+    }
+  }, [selectedClientId, initialPlanId, plans, clients]);
+
+  const targetClient = clients.find(
+    (c) => c.id === selectedClientId || c.clientId === selectedClientId
+  );
   const targetPlan =
     plans.find((p) => p.id === selectedPlanId) ||
     plans.find((p) => (p as any).planId === selectedPlanId) ||
+    (targetClient?.assignedPlanName &&
+      plans.find((p) => p.planName.toLowerCase() === targetClient.assignedPlanName!.toLowerCase())) ||
     plans[0];
+
+  const handleClientChange = (clientId: string) => {
+    setSelectedClientId(clientId);
+    const client = clients.find(
+      (c) => c.id === clientId || c.clientId === clientId
+    );
+    if (client) {
+      const planToSelect = resolveClientPlanId(client);
+      if (planToSelect) {
+        setSelectedPlanId(planToSelect);
+      }
+      if (client.assignedPlanAmount && client.assignedPlanAmount > 0) {
+        setAllocatedCapital(client.assignedPlanAmount);
+      }
+      if (client.assignedPlanStartDate) {
+        setStartDate(client.assignedPlanStartDate);
+      }
+    }
+  };
 
   const dailyRate = targetPlan?.dailyReturnPct ?? 0.5;
   const monthlyRate = targetPlan?.monthlyReturnPct ?? 15.0;
@@ -118,7 +183,7 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
           </label>
           <select
             value={selectedClientId}
-            onChange={(e) => setSelectedClientId(e.target.value)}
+            onChange={(e) => handleClientChange(e.target.value)}
             className="w-full px-3.5 py-2.5 rounded-xl bg-[#080C14] border border-[#1E293B] text-white text-xs focus:outline-none focus:border-[#D4AF37]"
           >
             {clients.map((c) => (

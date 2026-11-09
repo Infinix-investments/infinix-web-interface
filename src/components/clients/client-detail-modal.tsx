@@ -1069,7 +1069,7 @@ export function ClientDetailModal({
 
             {client.isPhoneVerified && client.assignedPlanStatus !== 'active' && onOpenAssignModal && (
               <button
-                onClick={() => onOpenAssignModal(client.id)}
+                onClick={() => onOpenAssignModal(client.id, client.assignedPlanId)}
                 className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white font-extrabold text-xs hover:brightness-110 shadow-md shadow-emerald-500/20 transition-all flex items-center gap-1.5"
               >
                 <CheckCircle className="w-3.5 h-3.5" />
@@ -1079,7 +1079,7 @@ export function ClientDetailModal({
 
             {client.assignedPlanStatus === 'active' && onOpenAssignModal && (
               <button
-                onClick={() => onOpenAssignModal(client.id)}
+                onClick={() => onOpenAssignModal(client.id, client.assignedPlanId)}
                 className="px-3 py-2 rounded-xl bg-[#0D131F] border border-[#1E293B] text-slate-300 hover:text-white font-semibold text-xs transition-all"
               >
                 Modify Allocated Capital
