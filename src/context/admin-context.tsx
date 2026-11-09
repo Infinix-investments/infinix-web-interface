@@ -207,7 +207,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     if (!client.phone || client.phone.trim().length < 7) {
       return {
         success: false,
-        message: "Cannot verify: Client has not submitted a mobile phone number yet.",
+        message:
+          "Cannot verify: Client has not submitted a mobile phone number yet.",
       };
     }
 
