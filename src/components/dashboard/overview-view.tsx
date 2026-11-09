@@ -12,6 +12,8 @@ import {
   FileText,
   DollarSign,
   ChevronRight,
+  Phone,
+  AlertCircle,
 } from "lucide-react";
 import { useAdmin } from "@/context/admin-context";
 
@@ -19,17 +21,19 @@ interface OverviewViewProps {
   onOpenAssignModal: (clientId: string) => void;
 }
 
+const isPhoneAdded = (phone?: string) =>
+  Boolean(phone && phone.trim().length > 0 && phone.trim().toLowerCase() !== "n/a" && phone.trim() !== "—");
+
 export function OverviewView({ onOpenAssignModal }: OverviewViewProps) {
   const {
     stats,
     clients,
     withdrawals,
     auditLogs,
-    verifyClientPhone,
     setActiveTab,
   } = useAdmin();
 
-  const pendingVerificationClients = clients.filter((c) => !c.isPhoneVerified);
+  const clientsWithoutPhone = clients.filter((c) => !isPhoneAdded(c.phone));
   const pendingWithdrawals = withdrawals.filter(
     (w) => w.status === "pending_approval",
   );
@@ -81,7 +85,9 @@ export function OverviewView({ onOpenAssignModal }: OverviewViewProps) {
               </span>
             </h2>
             <p className="mt-1 text-xs text-slate-400">
-              {stats.pendingPhoneCount} pending phone verification
+              {clientsWithoutPhone.length === 0
+                ? "All investors have phone added"
+                : `${clientsWithoutPhone.length} phone number not added`}
             </p>
           </div>
         </div>
@@ -171,13 +177,13 @@ export function OverviewView({ onOpenAssignModal }: OverviewViewProps) {
 
       {/* 2-Column Section: Pending Verifications vs Pending Withdrawals */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Pending Phone Verifications */}
+        {/* Investors Without Phone Number */}
         <div className="p-6 rounded-2xl bg-[#0D131F] border border-[#1E293B]">
           <div className="flex items-center justify-between pb-4 border-b border-[#1E293B]">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-400" />
+              <Phone className="w-4 h-4 text-amber-400" />
               <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                Pending Phone Verification ({pendingVerificationClients.length})
+                Phone Number Not Added ({clientsWithoutPhone.length})
               </h3>
             </div>
             <button
@@ -189,12 +195,12 @@ export function OverviewView({ onOpenAssignModal }: OverviewViewProps) {
           </div>
 
           <div className="mt-4 space-y-3">
-            {pendingVerificationClients.length === 0 ? (
+            {clientsWithoutPhone.length === 0 ? (
               <p className="text-xs text-slate-400 py-6 text-center">
-                All registered investors have been verified.
+                All registered investors have added a phone number.
               </p>
             ) : (
-              pendingVerificationClients.map((client) => (
+              clientsWithoutPhone.map((client) => (
                 <div
                   key={client.id}
                   className="p-3.5 rounded-xl bg-[#080C14] border border-[#1E293B] flex items-center justify-between"
@@ -203,18 +209,19 @@ export function OverviewView({ onOpenAssignModal }: OverviewViewProps) {
                     <h4 className="text-sm font-bold text-white">
                       {client.firstName} {client.lastName}
                     </h4>
-                    <p className="text-xs text-slate-400">{client.phone}</p>
-                    <p className="text-[11px] text-amber-400/90 mt-0.5">
-                      Pending manual phone verification
-                    </p>
+                    <p className="text-xs text-slate-400">{client.email}</p>
+                    <div className="inline-flex items-center gap-1.5 px-2 py-0.5 mt-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[10px] font-medium">
+                      <AlertCircle className="w-3 h-3 shrink-0" />
+                      <span>Phone number not added</span>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => verifyClientPhone(client.id)}
-                      className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 font-bold text-xs transition-all"
+                      onClick={() => setActiveTab("clients")}
+                      className="px-3 py-1.5 rounded-lg bg-[#141C2E] border border-[#1E293B] hover:bg-[#1E293B] text-slate-200 hover:text-white font-bold text-xs transition-all"
                     >
-                      ✓ Verify Phone
+                      View Client
                     </button>
                   </div>
                 </div>

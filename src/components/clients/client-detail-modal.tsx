@@ -14,6 +14,7 @@ import {
   Share2,
   Calendar,
   AlertCircle,
+  AlertTriangle,
   Copy,
   Check,
   Award,
@@ -38,6 +39,9 @@ interface ClientDetailModalProps {
   onClose: () => void;
   onOpenAssignModal?: (clientId: string) => void;
 }
+
+const isPhoneAdded = (phone?: string) =>
+  Boolean(phone && phone.trim().length > 0 && phone.trim().toLowerCase() !== 'n/a' && phone.trim() !== '—');
 
 export function ClientDetailModal({
   client,
@@ -92,13 +96,6 @@ export function ClientDetailModal({
     navigator.clipboard.writeText(referralStats.referralCode);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
-  };
-
-  const handleVerifyPhone = () => {
-    const res = verifyClientPhone(client.id);
-    if (res.success) {
-      showToast(res.message);
-    }
   };
 
   const handleApprovePayout = (wdId: string) => {
@@ -319,26 +316,20 @@ export function ClientDetailModal({
           {/* TAB 1: OVERVIEW & CREDENTIALS */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
-              {/* Phone Verification Notice Banner if not verified */}
-              {!client.isPhoneVerified && (
+              {/* Phone Status Notice Banner if phone not added */}
+              {!isPhoneAdded(client.phone) && (
                 <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <Clock className="w-5 h-5 text-amber-400 shrink-0" />
+                    <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
                     <div>
                       <h4 className="text-xs font-bold text-amber-300">
-                        Phone Verification Required
+                        Phone Number Not Added
                       </h4>
                       <p className="text-[11px] text-amber-200/80">
-                        This investor has registered their account but must verify their phone number (+91 {client.phone}) before accessing investment plans, withdrawals, and referral tracking.
+                        This investor has registered their account but has not added a mobile phone number yet.
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={handleVerifyPhone}
-                    className="px-3.5 py-1.5 rounded-xl bg-emerald-500 text-black font-extrabold text-xs hover:brightness-110 shrink-0 shadow-md transition-all"
-                  >
-                    ✓ Authorize Verification
-                  </button>
                 </div>
               )}
 
@@ -373,18 +364,24 @@ export function ClientDetailModal({
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                         Registered Mobile Number
                       </span>
-                      {client.isPhoneVerified ? (
+                      {isPhoneAdded(client.phone) ? (
                         <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
-                          <CheckCircle className="w-3 h-3" /> Verified
+                          <CheckCircle className="w-3 h-3" /> Added
                         </span>
                       ) : (
                         <span className="text-[10px] font-bold text-amber-400 flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> Pending OTP
+                          <AlertCircle className="w-3 h-3" /> Not Added
                         </span>
                       )}
                     </div>
                     <span className="font-bold text-white text-sm mt-0.5 block">
-                      {client.phone}
+                      {isPhoneAdded(client.phone) ? (
+                        client.phone
+                      ) : (
+                        <span className="text-slate-500 font-normal italic text-xs">
+                          Phone number not added
+                        </span>
+                      )}
                     </span>
                   </div>
 
@@ -1058,16 +1055,7 @@ export function ClientDetailModal({
         {/* Modal Footer Quick Actions */}
         <div className="p-4 px-6 border-t border-[#1E293B] bg-[#080C14] flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            {!client.isPhoneVerified && (
-              <button
-                onClick={handleVerifyPhone}
-                className="px-3.5 py-2 rounded-xl bg-emerald-500 text-black font-extrabold text-xs hover:brightness-110 transition-all shadow"
-              >
-                ✓ Verify Phone Now
-              </button>
-            )}
-
-            {client.isPhoneVerified && client.assignedPlanStatus !== 'active' && onOpenAssignModal && (
+            {client.assignedPlanStatus !== 'active' && onOpenAssignModal && (
               <button
                 onClick={() => onOpenAssignModal(client.id)}
                 className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white font-extrabold text-xs hover:brightness-110 shadow-md shadow-emerald-500/20 transition-all flex items-center gap-1.5"

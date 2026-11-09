@@ -33,11 +33,14 @@ interface ClientsViewProps {
   onOpenNewClientModal: () => void;
 }
 
+const isPhoneAdded = (phone?: string) =>
+  Boolean(phone && phone.trim().length > 0 && phone.trim().toLowerCase() !== 'n/a' && phone.trim() !== '—');
+
 export function ClientsView({
   onOpenAssignModal,
   onOpenNewClientModal,
 }: ClientsViewProps) {
-  const { clients, referrals, verifyClientPhone, revokeClientPlan } = useAdmin();
+  const { clients, referrals, revokeClientPlan } = useAdmin();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState<
     'all' | 'pending_verification' | 'pending_plan' | 'active_plan' | 'referral_partners'
@@ -49,13 +52,6 @@ export function ClientsView({
   const showToast = (msg: string) => {
     setActionToast(msg);
     setTimeout(() => setActionToast(''), 4500);
-  };
-
-  const handleVerify = (clientId: string) => {
-    const res = verifyClientPhone(clientId);
-    if (res.success) {
-      showToast(res.message);
-    }
   };
 
   const handleRevoke = (clientId: string) => {
@@ -78,8 +74,8 @@ export function ClientsView({
 
     if (!matchesSearch) return false;
 
-    if (filterTab === 'pending_verification') return !c.isPhoneVerified;
-    if (filterTab === 'pending_plan') return c.isPhoneVerified && !c.assignedPlanId;
+    if (filterTab === 'pending_verification') return !isPhoneAdded(c.phone);
+    if (filterTab === 'pending_plan') return isPhoneAdded(c.phone) && !c.assignedPlanId;
     if (filterTab === 'active_plan') return c.assignedPlanStatus === 'active';
     if (filterTab === 'referral_partners') return refStats.level > 0 || refStats.totalReferred > 0;
 
@@ -143,7 +139,7 @@ export function ClientsView({
                 : 'bg-[#080C14] text-slate-400 hover:text-white border border-[#1E293B]'
             }`}
           >
-            Pending Phone ({clients.filter((c) => !c.isPhoneVerified).length})
+            No Phone Added ({clients.filter((c) => !isPhoneAdded(c.phone)).length})
           </button>
           <button
             onClick={() => setFilterTab('pending_plan')}
@@ -153,7 +149,7 @@ export function ClientsView({
                 : 'bg-[#080C14] text-slate-400 hover:text-white border border-[#1E293B]'
             }`}
           >
-            Verified (No Plan) ({clients.filter((c) => c.isPhoneVerified && !c.assignedPlanId).length})
+            Phone Added (No Plan) ({clients.filter((c) => isPhoneAdded(c.phone) && !c.assignedPlanId).length})
           </button>
           <button
             onClick={() => setFilterTab('active_plan')}
@@ -190,7 +186,7 @@ export function ClientsView({
             <thead>
               <tr className="border-b border-[#1E293B] bg-[#080C14]/80 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                 <th className="py-4 px-5">Client / Investor</th>
-                <th className="py-4 px-5">Phone Verification</th>
+                <th className="py-4 px-5">Phone Status</th>
                 <th className="py-4 px-5">Assigned Plan & 15% Payout</th>
                 <th className="py-4 px-5">Referral Code & Level</th>
                 <th className="py-4 px-5">Settlement Bank</th>
@@ -239,35 +235,27 @@ export function ClientsView({
                               <Mail className="w-3 h-3 text-slate-500 shrink-0" />
                               <span>{client.email}</span>
                             </div>
-                            <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-                              <Phone className="w-3 h-3 text-slate-500 shrink-0" />
-                              <span>{client.phone}</span>
-                            </div>
                           </div>
                         </div>
                       </td>
 
-                      {/* Phone Verification */}
+                      {/* Phone Status */}
                       <td className="py-4 px-5">
-                        {client.isPhoneVerified ? (
-                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold text-[11px]">
-                            <CheckCircle className="w-3 h-3" />
-                            <span>Phone Verified</span>
+                        {isPhoneAdded(client.phone) ? (
+                          <div className="space-y-1">
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-semibold text-[11px]">
+                              <CheckCircle className="w-3 h-3" />
+                              <span>Added</span>
+                            </div>
+                            <div className="text-xs font-mono text-slate-200 flex items-center gap-1.5">
+                              <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+                              <span>{client.phone}</span>
+                            </div>
                           </div>
                         ) : (
-                          <div className="space-y-1.5">
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 font-semibold text-[11px]">
-                              <Clock className="w-3 h-3" />
-                              <span>Pending OTP</span>
-                            </div>
-                            <div>
-                              <button
-                                onClick={() => handleVerify(client.id)}
-                                className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold text-[10px] transition-all"
-                              >
-                                ✓ Verify Phone
-                              </button>
-                            </div>
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 font-medium text-[11px]">
+                            <AlertCircle className="w-3 h-3 shrink-0" />
+                            <span>Phone number not added</span>
                           </div>
                         )}
                       </td>
@@ -373,14 +361,7 @@ export function ClientsView({
                           </button>
 
                           {/* Contextual Quick Actions */}
-                          {!client.isPhoneVerified ? (
-                            <button
-                              onClick={() => handleVerify(client.id)}
-                              className="px-3 py-1.5 rounded-lg bg-emerald-500 text-black font-extrabold text-xs hover:brightness-110 transition-all shadow"
-                            >
-                              Verify
-                            </button>
-                          ) : client.assignedPlanStatus === 'active' ? (
+                          {client.assignedPlanStatus === 'active' ? (
                             <div className="flex items-center gap-1.5">
                               <button
                                 onClick={() => onOpenAssignModal(client.id)}
