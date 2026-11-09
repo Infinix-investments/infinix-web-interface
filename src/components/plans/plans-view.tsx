@@ -22,7 +22,7 @@ import { useAdmin } from '@/context/admin-context';
 import { InvestmentPlanConfig } from '@/types/admin';
 
 interface PlansViewProps {
-  onOpenAssignModal: (clientId?: string) => void;
+  onOpenAssignModal: (clientId?: string, planId?: string) => void;
 }
 
 export function PlansView({ onOpenAssignModal }: PlansViewProps) {
@@ -464,7 +464,7 @@ export function PlansView({ onOpenAssignModal }: PlansViewProps) {
                       </button>
 
                       <button
-                        onClick={() => onOpenAssignModal()}
+                        onClick={() => onOpenAssignModal(undefined, p.id)}
                         className="px-4 py-2 rounded-xl bg-[#080C14] border border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#D4AF37]/10 font-bold text-xs transition-all flex items-center gap-1.5"
                       >
                         <ArrowRight className="w-3.5 h-3.5" />

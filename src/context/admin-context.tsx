@@ -179,7 +179,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     };
   };
 
-  // 2. ASSIGN INVESTMENT PLAN (Defaults to 14-Month 15% Return Accelerator, 0.5% Daily Increment)
+  // 2. ASSIGN INVESTMENT PLAN
   const assignPlanToClient = (
     clientId: string,
     planId: string,
@@ -188,7 +188,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     paymentReference?: string
   ) => {
     const client = clients.find((c) => c.id === clientId);
-    const plan = plans.find((p) => p.id === planId) || plans[0];
+    const plan = plans.find((p) => p.id === planId) || plans.find((p) => (p as any).planId === planId) || plans[0];
 
     if (!client) return { success: false, message: 'Client not found.' };
     if (!client.isPhoneVerified) {
@@ -240,10 +240,10 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     addAuditLog(
       'Investment Plan Activated',
       'plan_assignment',
-      `Payment verified & activated "${plan.planName}" with ${amount.toLocaleString('en-US')} USDT capital for ${client.firstName} ${client.lastName}. 0.5% daily (15% monthly distribution). Ref: ${paymentReference || 'Direct USDT Verification'}.`
+      `Payment verified & activated "${plan.planName}" with ${amount.toLocaleString('en-US')} USDT capital for ${client.firstName} ${client.lastName}. Ref: ${paymentReference || 'Direct USDT Verification'}.`
     );
 
-    api.assignPlan(clientId, plan.id, amount, 'Chief Wealth Admin (Altaf)', today, paymentReference).catch(() => {});
+    api.assignPlan(clientId, plan.id, amount, 'Chief Wealth Admin (Altaf)', today, paymentReference, plan.planName).catch(() => {});
 
     return {
       success: true,

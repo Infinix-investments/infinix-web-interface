@@ -83,11 +83,12 @@ class ApiClient {
     capitalAmount: number,
     adminName?: string,
     startDate?: string,
-    paymentReference?: string
+    paymentReference?: string,
+    planName?: string
   ) {
     return this.request<any>(`/clients/${clientId}/assign-plan`, {
       method: 'POST',
-      body: JSON.stringify({ planId, capitalAmount, adminName, startDate, paymentReference }),
+      body: JSON.stringify({ planId, planName, capitalAmount, adminName, startDate, paymentReference }),
     });
   }
 
