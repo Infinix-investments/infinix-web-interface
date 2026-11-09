@@ -204,6 +204,12 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   const verifyClientPhone = (clientId: string) => {
     const client = clients.find((c) => c.id === clientId);
     if (!client) return { success: false, message: "Client not found." };
+    if (!client.phone || client.phone.trim().length < 7) {
+      return {
+        success: false,
+        message: "Cannot verify: Client has not submitted a mobile phone number yet.",
+      };
+    }
 
     setClients((prev) =>
       prev.map((c) =>
