@@ -14,3 +14,4 @@ export function formatUSDT(val?: number | null, maxDecimals: number = 2): string
     }).format(val) + ' USDT'
   );
 }
+
