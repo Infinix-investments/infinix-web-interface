@@ -119,11 +119,22 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
 
   const handleVerifyPhoneFirst = () => {
     if (!targetClient) return;
-    verifyClientPhone(targetClient.id);
+    if (!targetClient.phone || targetClient.phone.trim().length < 7) {
+      setToast('⚠️ Investor has not submitted a mobile phone number yet.');
+      return;
+    }
+    const res = verifyClientPhone(targetClient.id);
+    if (!res.success) {
+      setToast(res.message);
+    }
   };
 
   const handleStartPlan = () => {
     if (!targetClient) return;
+    if (!targetClient.phone || targetClient.phone.trim().length < 7) {
+      setToast('⚠️ Investor must submit a mobile phone number before activating a plan.');
+      return;
+    }
     if (!targetClient.isPhoneVerified) {
       setToast('⚠️ Investor phone must be verified first.');
       return;
