@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useAdmin } from '@/context/admin-context';
 import { ClientProfile } from '@/types/admin';
+import { formatUSDT } from '@/utils/currency';
 import {
   computeClientReferralStats,
   REFERRAL_LEVEL_RULES,
@@ -51,6 +52,7 @@ export function ClientDetailModal({
 }: ClientDetailModalProps) {
   const {
     clients,
+    plans,
     referrals,
     withdrawals,
     verifyClientPhone,
@@ -88,8 +90,7 @@ export function ClientDetailModal({
     REFERRAL_LEVEL_RULES[0];
 
   const formatINR = (val?: number) => {
-    if (val === undefined || val === null) return '—';
-    return Math.round(val).toLocaleString('en-US') + ' USDT';
+    return formatUSDT(val);
   };
 
   const handleCopyCode = () => {
@@ -107,19 +108,33 @@ export function ClientDetailModal({
     }
   };
 
+  const assignedPlan = plans.find(
+    (p) =>
+      p.id === client.assignedPlanId ||
+      (p as any).planId === client.assignedPlanId ||
+      (client.assignedPlanName &&
+        p.planName.toLowerCase() === client.assignedPlanName.toLowerCase())
+  );
+  const planDuration = assignedPlan?.durationMonths ?? 14;
+  const planDailyRate = assignedPlan?.dailyReturnPct ?? 0.5;
+  const planMonthlyPct = assignedPlan?.monthlyReturnPct ?? 15.0;
+  const planGrossTotalReturnPct =
+    assignedPlan?.grossTotalReturnPct ?? planMonthlyPct * planDuration;
+
   const monthlyPayout = client.assignedPlanAmount
-    ? (client.assignedPlanAmount * 15) / 100
+    ? (client.assignedPlanAmount * planMonthlyPct) / 100
     : 0;
   const dailyProfit = client.assignedPlanAmount
-    ? (client.assignedPlanAmount * 0.5) / 100
+    ? (client.assignedPlanAmount * planDailyRate) / 100
     : 0;
   const planStart = client.assignedPlanStartDate ? new Date(client.assignedPlanStartDate) : new Date();
-  const daysElapsed = Math.max(1, Math.min(420, Math.floor((Date.now() - planStart.getTime()) / (1000 * 60 * 60 * 24)) + 1));
+  const maxDays = planDuration * 30;
+  const daysElapsed = Math.max(1, Math.min(maxDays, Math.floor((Date.now() - planStart.getTime()) / (1000 * 60 * 60 * 24)) + 1));
   const totalAccruedSoFar = daysElapsed * dailyProfit;
-  const monthlyCapitalReturn = monthlyPayout / 2; // 7.5%
-  const monthlyProfitReturn = monthlyPayout / 2; // 7.5%
+  const monthlyCapitalReturn = monthlyPayout / 2;
+  const monthlyProfitReturn = monthlyPayout / 2;
   const totalMaturityGross = client.assignedPlanAmount
-    ? (client.assignedPlanAmount * 210) / 100
+    ? (client.assignedPlanAmount * planGrossTotalReturnPct) / 100
     : 0;
 
   return (
@@ -212,19 +227,19 @@ export function ClientDetailModal({
               {formatINR(client.assignedPlanAmount)}
             </div>
             <div className="text-[11px] text-[#D4AF37] font-semibold mt-0.5">
-              {client.assignedPlanStatus === 'active' ? 'Active 14M Tranche' : 'Awaiting Plan'}
+              {client.assignedPlanStatus === 'active' ? `Active ${planDuration}M Tranche` : 'Awaiting Plan'}
             </div>
           </div>
 
           <div className="p-4 bg-[#0D131F]">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              15% Monthly Payout
+              {planMonthlyPct}% Monthly Payout
             </span>
             <div className="text-base md:text-lg font-black text-emerald-400 mt-1">
               {monthlyPayout > 0 ? formatINR(monthlyPayout) : '—'}
             </div>
             <div className="text-[11px] text-slate-400 mt-0.5">
-              7.5% Cap + 7.5% Profit
+              {(planMonthlyPct / 2).toFixed(1)}% Cap + {(planMonthlyPct / 2).toFixed(1)}% Profit
             </div>
           </div>
 
@@ -471,7 +486,7 @@ export function ClientDetailModal({
             </div>
           )}
 
-          {/* TAB 2: INVESTMENT SCHEDULE & 14-MONTH TRANCHE */}
+          {/* TAB 2: INVESTMENT SCHEDULE & TRANCHE */}
           {activeTab === 'plan' && (
             <div className="space-y-6">
               {client.assignedPlanStatus === 'active' ? (
@@ -487,7 +502,7 @@ export function ClientDetailModal({
                           {client.assignedPlanName}
                         </h3>
                         <p className="text-xs text-slate-400 mt-1">
-                          Private contractual high-yield wealth tranche providing 15.0% monthly distribution over a 14-month contractual period.
+                          Private contractual high-yield wealth tranche providing {planMonthlyPct}% monthly distribution ({planDailyRate}% daily) over a {planDuration}-month contractual period. Total gross payout: {planGrossTotalReturnPct}%.
                         </p>
                       </div>
 
@@ -501,37 +516,37 @@ export function ClientDetailModal({
                       )}
                     </div>
 
-                    {/* Progress Bar Month Index of 14 */}
+                    {/* Progress Bar Month Index */}
                     <div className="pt-2">
                       <div className="flex items-center justify-between text-xs mb-1.5">
                         <span className="font-bold text-white">
-                          Tenure Progress: Month {client.currentMonthIndex} of 14
+                          Tenure Progress: Month {client.currentMonthIndex} of {planDuration}
                         </span>
                         <span className="font-bold text-[#D4AF37]">
-                          {Math.round((client.currentMonthIndex / 14) * 100)}% Complete
+                          {Math.round((client.currentMonthIndex / planDuration) * 100)}% Complete
                         </span>
                       </div>
                       <div className="w-full h-3 rounded-full bg-[#080C14] border border-[#1E293B] overflow-hidden p-0.5">
                         <div
                           className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] to-[#F59E0B] transition-all duration-500"
                           style={{
-                            width: `${Math.min(100, Math.round((client.currentMonthIndex / 14) * 100))}%`,
+                            width: `${Math.min(100, Math.round((client.currentMonthIndex / planDuration) * 100))}%`,
                           }}
                         />
                       </div>
                       <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1">
                         <span>Started: {client.assignedPlanStartDate || '2026-10-01'}</span>
-                        <span>Maturity: 14 Months</span>
+                        <span>Maturity: {planDuration} Months</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Daily Incremental Accrual Card (0.5% / day) */}
+                  {/* Daily Incremental Accrual Card */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-4 rounded-2xl bg-[#080C14] border border-emerald-500/40">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          Daily Increment (+0.5%)
+                          Daily Increment (+{planDailyRate}%)
                         </span>
                         <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">
                           Active Daily Accrual
@@ -552,7 +567,7 @@ export function ClientDetailModal({
                           Accrued Returns to Date
                         </span>
                         <span className="px-2 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] font-bold text-[10px]">
-                          Day {daysElapsed} of 420
+                          Day {daysElapsed} of {maxDays}
                         </span>
                       </div>
                       <div className="text-2xl font-black text-white mt-1">
@@ -564,17 +579,17 @@ export function ClientDetailModal({
                     </div>
                   </div>
 
-                  {/* 15% Monthly Return Structure Card */}
+                  {/* Monthly Return Structure Card */}
                   <div className="rounded-2xl bg-[#080C14] border border-[#1E293B] p-5 space-y-4">
                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
                       <Percent className="w-3.5 h-3.5 text-[#D4AF37]" />
-                      <span>15.0% Monthly Distribution Formula</span>
+                      <span>{planMonthlyPct}% Monthly Distribution Formula</span>
                     </h4>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                       <div className="p-4 rounded-xl bg-[#0D131F] border border-[#1E293B]">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                          Total Monthly Payout (15%)
+                          Total Monthly Payout ({planMonthlyPct}%)
                         </span>
                         <div className="text-xl font-black text-white mt-1">
                           {formatINR(monthlyPayout)}
@@ -586,7 +601,7 @@ export function ClientDetailModal({
 
                       <div className="p-4 rounded-xl bg-[#0D131F] border border-[#1E293B]">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                          7.5% Principal Return
+                          {(planMonthlyPct / 2).toFixed(1)}% Principal Return
                         </span>
                         <div className="text-xl font-black text-blue-400 mt-1">
                           {formatINR(monthlyCapitalReturn)}
@@ -598,7 +613,7 @@ export function ClientDetailModal({
 
                       <div className="p-4 rounded-xl bg-[#0D131F] border border-[#1E293B]">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                          7.5% Net Profit Yield
+                          {(planMonthlyPct / 2).toFixed(1)}% Net Profit Yield
                         </span>
                         <div className="text-xl font-black text-emerald-400 mt-1">
                           {formatINR(monthlyProfitReturn)}
@@ -612,10 +627,10 @@ export function ClientDetailModal({
                     <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-between text-xs">
                       <div>
                         <span className="font-bold text-blue-300 block">
-                          Total 14-Month Gross Yield (210%)
+                          Total {planDuration}-Month Gross Yield ({planGrossTotalReturnPct}%)
                         </span>
                         <span className="text-[11px] text-blue-200/80">
-                          105% Return of Capital ({formatINR(client.assignedPlanAmount)}) + 105% Pure Profit ({formatINR(client.assignedPlanAmount)})
+                          {formatINR(totalMaturityGross)} total gross return across {planDuration} months
                         </span>
                       </div>
                       <div className="text-base font-black text-white text-right">
@@ -666,7 +681,7 @@ export function ClientDetailModal({
                       Payment Verification & Plan Activation
                     </h3>
                     <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
-                      Once client payment is received in Infinix escrow, start their plan here. The plan will become active immediately and begin accruing 0.5% daily (15% monthly) in the investor&apos;s app.
+                      Once client payment is received in Infinix escrow, start their plan here. The plan will become active immediately and begin accruing daily returns in the investor&apos;s app.
                     </p>
                   </div>
                   {onOpenAssignModal && (
@@ -834,7 +849,7 @@ export function ClientDetailModal({
                         <th className="py-3 px-4">Registered Date</th>
                         <th className="py-3 px-4">Investment Plan</th>
                         <th className="py-3 px-4">Invested Capital</th>
-                        <th className="py-3 px-4">Referee Monthly ROI (15%)</th>
+                        <th className="py-3 px-4">Referee Monthly ROI</th>
                         <th className="py-3 px-4 text-right">
                           Monthly Yield ({referralStats.roiPct}%)
                         </th>
@@ -922,7 +937,7 @@ export function ClientDetailModal({
                           Active Withdrawal Claim Awaiting Approval
                         </h4>
                         <p className="text-[11px] text-amber-200/80 mt-0.5">
-                          Claimed Month {pendingWithdrawal.monthIndex} of 14 distribution ({formatINR(pendingWithdrawal.amount)}) for {client.bankAccount}. Custodian fee waived.
+                          Claimed Month {pendingWithdrawal.monthIndex} of {planDuration} distribution ({formatINR(pendingWithdrawal.amount)}) for {client.bankAccount}. Custodian fee waived.
                         </p>
                       </div>
                     </div>

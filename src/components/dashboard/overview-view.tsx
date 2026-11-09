@@ -16,6 +16,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useAdmin } from "@/context/admin-context";
+import { formatUSDT } from "@/utils/currency";
 
 interface OverviewViewProps {
   onOpenAssignModal: (clientId: string) => void;
@@ -39,7 +40,7 @@ export function OverviewView({ onOpenAssignModal }: OverviewViewProps) {
   );
 
   const formatINR = (val: number) => {
-    return val.toLocaleString("en-US") + " USDT";
+    return formatUSDT(val);
   };
 
   return (

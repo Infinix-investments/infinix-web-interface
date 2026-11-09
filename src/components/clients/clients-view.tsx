@@ -23,6 +23,7 @@ import {
 import { useAdmin } from '@/context/admin-context';
 import { ClientProfile } from '@/types/admin';
 import { ClientDetailModal } from './client-detail-modal';
+import { formatUSDT } from '@/utils/currency';
 import {
   computeClientReferralStats,
   REFERRAL_LEVEL_RULES,
@@ -40,7 +41,7 @@ export function ClientsView({
   onOpenAssignModal,
   onOpenNewClientModal,
 }: ClientsViewProps) {
-  const { clients, referrals, revokeClientPlan } = useAdmin();
+  const { clients, plans, referrals, revokeClientPlan } = useAdmin();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState<
     'all' | 'pending_verification' | 'pending_plan' | 'active_plan' | 'referral_partners'
@@ -83,8 +84,7 @@ export function ClientsView({
   });
 
   const formatINR = (val?: number) => {
-    if (!val) return '—';
-    return Math.round(val).toLocaleString('en-US') + ' USDT';
+    return formatUSDT(val);
   };
 
   return (
@@ -159,7 +159,7 @@ export function ClientsView({
                 : 'bg-[#080C14] text-slate-400 hover:text-white border border-[#1E293B]'
             }`}
           >
-            Active 14M Plan ({clients.filter((c) => c.assignedPlanStatus === 'active').length})
+            Active Plan ({clients.filter((c) => c.assignedPlanStatus === 'active').length})
           </button>
           <button
             onClick={() => setFilterTab('referral_partners')}
@@ -187,7 +187,7 @@ export function ClientsView({
               <tr className="border-b border-[#1E293B] bg-[#080C14]/80 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                 <th className="py-4 px-5">Client / Investor</th>
                 <th className="py-4 px-5">Phone Status</th>
-                <th className="py-4 px-5">Assigned Plan & 15% Payout</th>
+                <th className="py-4 px-5">Assigned Plan & Payout</th>
                 <th className="py-4 px-5">Referral Code & Level</th>
                 <th className="py-4 px-5">Settlement Bank</th>
                 <th className="py-4 px-5 text-right">Actions</th>
@@ -202,8 +202,17 @@ export function ClientsView({
                 </tr>
               ) : (
                 filteredClients.map((client) => {
+                  const assignedPlan = plans.find(
+                    (p) =>
+                      p.id === client.assignedPlanId ||
+                      (p as any).planId === client.assignedPlanId ||
+                      (client.assignedPlanName &&
+                        p.planName.toLowerCase() === client.assignedPlanName.toLowerCase())
+                  );
+                  const planDuration = assignedPlan?.durationMonths ?? 14;
+                  const planMonthlyPct = assignedPlan?.monthlyReturnPct ?? 15.0;
                   const monthlyPayout = client.assignedPlanAmount
-                    ? (client.assignedPlanAmount * 15) / 100
+                    ? (client.assignedPlanAmount * planMonthlyPct) / 100
                     : 0;
 
                   // Live referral calculations
@@ -267,14 +276,14 @@ export function ClientsView({
                             <div className="font-bold text-white text-xs flex items-center gap-1.5">
                               <span>{formatINR(client.assignedPlanAmount)}</span>
                               <span className="text-[10px] text-[#D4AF37] font-semibold">
-                                (14-Month)
+                                ({planDuration}-Month)
                               </span>
                             </div>
                             <div className="text-[11px] text-emerald-400 font-semibold mt-0.5">
-                              {formatINR(monthlyPayout)} / mo (15%)
+                              {formatINR(monthlyPayout)} / mo ({planMonthlyPct}%)
                             </div>
                             <div className="text-[10px] text-slate-400 mt-0.5">
-                              Month {client.currentMonthIndex} of 14 •{' '}
+                              Month {client.currentMonthIndex} of {planDuration} •{' '}
                               {client.currentMonthWithdrawn ? (
                                 <span className="text-emerald-400 font-medium">✓ Withdrawn</span>
                               ) : (

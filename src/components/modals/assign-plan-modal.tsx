@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, TrendingUp, AlertCircle, ShieldCheck, Calendar, DollarSign, FileCheck } from 'lucide-react';
 import { useAdmin } from '@/context/admin-context';
 import { api } from '@/services/api';
+import { formatUSDT } from '@/utils/currency';
 
 interface AssignPlanModalProps {
   clientId?: string;
@@ -119,7 +120,7 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
   const totalPayout = (allocatedCapital * grossTotalReturnPct) / 100;
 
   const formatINR = (val: number) => {
-    return Math.round(val).toLocaleString('en-US') + ' USDT';
+    return formatUSDT(val);
   };
 
   const handleSavePhone = async () => {
