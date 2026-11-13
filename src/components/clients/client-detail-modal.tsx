@@ -511,7 +511,7 @@ export function ClientDetailModal({
                           onClick={() => onOpenAssignModal(client.id)}
                           className="px-3.5 py-1.5 rounded-xl bg-[#080C14] hover:bg-[#1E293B] border border-[#1E293B] text-slate-300 hover:text-white font-bold text-xs transition-all shrink-0"
                         >
-                          Modify Plan Capital
+                          + Allocate Additional Plan
                         </button>
                       )}
                     </div>
@@ -1085,7 +1085,7 @@ export function ClientDetailModal({
                 onClick={() => onOpenAssignModal(client.id)}
                 className="px-3 py-2 rounded-xl bg-[#0D131F] border border-[#1E293B] text-slate-300 hover:text-white font-semibold text-xs transition-all"
               >
-                Modify Allocated Capital
+                + Allocate Additional Plan
               </button>
             )}
           </div>

@@ -267,11 +267,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
               ...c,
               assignedPlanId: resolvedPlanId,
               assignedPlanName: plan.planName,
-              assignedPlanAmount: amount,
-              assignedPlanStartDate: today,
+              assignedPlanAmount: c.assignedPlanStatus === 'active' ? (c.assignedPlanAmount || 0) + amount : amount,
+              assignedPlanStartDate: c.assignedPlanStartDate || today,
               assignedPlanStatus: "active",
-              totalAum: amount,
-              currentMonthIndex: 1,
+              totalAum: c.assignedPlanStatus === 'active' ? (c.totalAum || 0) + amount : amount,
+              currentMonthIndex: c.currentMonthIndex || 1,
               currentMonthWithdrawn: false,
               paymentVerified: true,
               paymentReference: paymentReference || "Bank Escrow Verified",
@@ -284,11 +284,12 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     setReferrals((prev) =>
       prev.map((r) => {
         if (r.refereeId === clientId || r.refereeId === resolvedClientId) {
-          const comm = (amount * r.commissionRatePct) / 100;
+          const newCap = (r.status === 'active' ? (r.capitalAmount || 0) : 0) + amount;
+          const comm = (newCap * r.commissionRatePct) / 100;
           return {
             ...r,
             status: "active",
-            capitalAmount: amount,
+            capitalAmount: newCap,
             planName: plan.planName,
             monthlyCommissionAmount: comm,
           };

@@ -374,9 +374,10 @@ export function ClientsView({
                             <div className="flex items-center gap-1.5">
                               <button
                                 onClick={() => onOpenAssignModal(client.id)}
+                                title="Allocate additional concurrent investment plan"
                                 className="px-2.5 py-1.5 rounded-lg bg-[#080C14] border border-[#1E293B] text-slate-300 hover:text-white font-semibold text-xs transition-all"
                               >
-                                Modify
+                                + Plan
                               </button>
                               <button
                                 onClick={() => handleRevoke(client.id)}
