@@ -788,7 +788,13 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     const activeInvestorsCount = clients.filter(
       (c) => c.assignedPlanStatus === "active",
     ).length;
-    const pendingPhoneCount = clients.filter((c) => !c.isPhoneVerified).length;
+    const pendingPhoneCount = clients.filter(
+      (c) =>
+        !c.phone ||
+        c.phone.trim().length === 0 ||
+        c.phone.trim().toLowerCase() === "n/a" ||
+        c.phone.trim() === "—",
+    ).length;
 
     const pendingWithdrawals = withdrawals.filter(
       (w) => w.status === "pending_approval",

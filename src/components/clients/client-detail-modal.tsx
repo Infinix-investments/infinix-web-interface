@@ -14,6 +14,7 @@ import {
   Share2,
   Calendar,
   AlertCircle,
+  AlertTriangle,
   Copy,
   Check,
   Award,
@@ -27,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useAdmin } from '@/context/admin-context';
 import { ClientProfile } from '@/types/admin';
+import { formatUSDT } from '@/utils/currency';
 import {
   computeClientReferralStats,
   REFERRAL_LEVEL_RULES,
@@ -39,6 +41,9 @@ interface ClientDetailModalProps {
   onOpenAssignModal?: (clientId: string) => void;
 }
 
+const isPhoneAdded = (phone?: string) =>
+  Boolean(phone && phone.trim().length > 0 && phone.trim().toLowerCase() !== 'n/a' && phone.trim() !== '—');
+
 export function ClientDetailModal({
   client,
   isOpen,
@@ -47,6 +52,7 @@ export function ClientDetailModal({
 }: ClientDetailModalProps) {
   const {
     clients,
+    plans,
     referrals,
     withdrawals,
     verifyClientPhone,
@@ -84,21 +90,13 @@ export function ClientDetailModal({
     REFERRAL_LEVEL_RULES[0];
 
   const formatINR = (val?: number) => {
-    if (val === undefined || val === null) return '—';
-    return Math.round(val).toLocaleString('en-US') + ' USDT';
+    return formatUSDT(val);
   };
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(referralStats.referralCode);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
-  };
-
-  const handleVerifyPhone = () => {
-    const res = verifyClientPhone(client.id);
-    if (res.success) {
-      showToast(res.message);
-    }
   };
 
   const handleApprovePayout = (wdId: string) => {
@@ -141,25 +139,39 @@ export function ClientDetailModal({
     }
 
     if (client.assignedPlanStatus === 'active' && client.assignedPlanAmount && client.assignedPlanAmount > 0) {
+      const assignedPlan = plans.find(
+        (p) =>
+          p.id === client.assignedPlanId ||
+          (p as any).planId === client.assignedPlanId ||
+          (client.assignedPlanName &&
+            p.planName.toLowerCase() === client.assignedPlanName.toLowerCase())
+      );
+      const planDuration = assignedPlan?.durationMonths ?? 14;
+      const planDailyRate = assignedPlan?.dailyReturnPct ?? 0.5;
+      const planMonthlyPct = assignedPlan?.monthlyReturnPct ?? 15.0;
+      const planGrossTotalReturnPct =
+        assignedPlan?.grossTotalReturnPct ?? planMonthlyPct * planDuration;
+
       const start = client.assignedPlanStartDate ? new Date(client.assignedPlanStartDate) : new Date();
-      const maxDays = 420;
+      const maxDays = planDuration * 30;
       const days = Math.max(0, Math.floor((Date.now() - start.getTime()) / (1000 * 60 * 60 * 24)));
       const effDays = Math.min(maxDays, days);
-      const daily = (client.assignedPlanAmount * 0.5) / 100;
+      const daily = (client.assignedPlanAmount * planDailyRate) / 100;
       const accrued = daily * effDays;
-      const monthly = (client.assignedPlanAmount * 15) / 100;
-      const grossReturn = (client.assignedPlanAmount * 210) / 100;
+      const monthly = (client.assignedPlanAmount * planMonthlyPct) / 100;
+      const grossReturn = (client.assignedPlanAmount * planGrossTotalReturnPct) / 100;
+
       return [
         {
           planInstanceId: 'primary-plan',
           planId: client.assignedPlanId || 'plan-default',
-          planName: client.assignedPlanName || 'Private Wealth Accelerator',
+          planName: client.assignedPlanName || assignedPlan?.planName || 'Private Wealth Accelerator',
           capitalAmount: client.assignedPlanAmount,
           startDate: client.assignedPlanStartDate || new Date().toISOString().split('T')[0],
-          durationMonths: 14,
-          dailyReturnPct: 0.5,
-          monthlyReturnPct: 15.0,
-          grossTotalReturnPct: 210,
+          durationMonths: planDuration,
+          dailyReturnPct: planDailyRate,
+          monthlyReturnPct: planMonthlyPct,
+          grossTotalReturnPct: planGrossTotalReturnPct,
           status: 'active' as const,
           index: 1,
           daysElapsed: days,
@@ -174,7 +186,7 @@ export function ClientDetailModal({
     }
 
     return [];
-  }, [client]);
+  }, [client, plans]);
 
   const totalCapitalAllocated = displayPlans.reduce((sum, p) => sum + p.capitalAmount, 0);
   const totalDailyProfit = displayPlans.reduce((sum, p) => sum + p.dailyProfit, 0);
@@ -187,8 +199,8 @@ export function ClientDetailModal({
   const planStart = client.assignedPlanStartDate ? new Date(client.assignedPlanStartDate) : new Date();
   const daysElapsed = Math.max(1, Math.min(420, Math.floor((Date.now() - planStart.getTime()) / (1000 * 60 * 60 * 24)) + 1));
   const totalAccruedSoFar = totalAccruedReturns;
-  const monthlyCapitalReturn = monthlyPayout / 2; // 7.5%
-  const monthlyProfitReturn = monthlyPayout / 2; // 7.5%
+  const monthlyCapitalReturn = monthlyPayout / 2;
+  const monthlyProfitReturn = monthlyPayout / 2;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-in fade-in duration-200">
@@ -280,19 +292,19 @@ export function ClientDetailModal({
               {formatINR(client.assignedPlanAmount)}
             </div>
             <div className="text-[11px] text-[#D4AF37] font-semibold mt-0.5">
-              {client.assignedPlanStatus === 'active' ? 'Active 14M Tranche' : 'Awaiting Plan'}
+              {client.assignedPlanStatus === 'active' ? `Active ${planDuration}M Tranche` : 'Awaiting Plan'}
             </div>
           </div>
 
           <div className="p-4 bg-[#0D131F]">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              15% Monthly Payout
+              {planMonthlyPct}% Monthly Payout
             </span>
             <div className="text-base md:text-lg font-black text-emerald-400 mt-1">
               {monthlyPayout > 0 ? formatINR(monthlyPayout) : '—'}
             </div>
             <div className="text-[11px] text-slate-400 mt-0.5">
-              7.5% Cap + 7.5% Profit
+              {(planMonthlyPct / 2).toFixed(1)}% Cap + {(planMonthlyPct / 2).toFixed(1)}% Profit
             </div>
           </div>
 
@@ -384,26 +396,20 @@ export function ClientDetailModal({
           {/* TAB 1: OVERVIEW & CREDENTIALS */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
-              {/* Phone Verification Notice Banner if not verified */}
-              {!client.isPhoneVerified && (
+              {/* Phone Status Notice Banner if phone not added */}
+              {!isPhoneAdded(client.phone) && (
                 <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <Clock className="w-5 h-5 text-amber-400 shrink-0" />
+                    <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
                     <div>
                       <h4 className="text-xs font-bold text-amber-300">
-                        Phone Verification Required
+                        Phone Number Not Added
                       </h4>
                       <p className="text-[11px] text-amber-200/80">
-                        This investor has registered their account but must verify their phone number (+91 {client.phone}) before accessing investment plans, withdrawals, and referral tracking.
+                        This investor has registered their account but has not added a mobile phone number yet.
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={handleVerifyPhone}
-                    className="px-3.5 py-1.5 rounded-xl bg-emerald-500 text-black font-extrabold text-xs hover:brightness-110 shrink-0 shadow-md transition-all"
-                  >
-                    ✓ Authorize Verification
-                  </button>
                 </div>
               )}
 
@@ -438,18 +444,24 @@ export function ClientDetailModal({
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                         Registered Mobile Number
                       </span>
-                      {client.isPhoneVerified ? (
+                      {isPhoneAdded(client.phone) ? (
                         <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
-                          <CheckCircle className="w-3 h-3" /> Verified
+                          <CheckCircle className="w-3 h-3" /> Added
                         </span>
                       ) : (
                         <span className="text-[10px] font-bold text-amber-400 flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> Pending OTP
+                          <AlertCircle className="w-3 h-3" /> Not Added
                         </span>
                       )}
                     </div>
                     <span className="font-bold text-white text-sm mt-0.5 block">
-                      {client.phone}
+                      {isPhoneAdded(client.phone) ? (
+                        client.phone
+                      ) : (
+                        <span className="text-slate-500 font-normal italic text-xs">
+                          Phone number not added
+                        </span>
+                      )}
                     </span>
                   </div>
 
@@ -685,7 +697,7 @@ export function ClientDetailModal({
                       Payment Verification & Plan Activation
                     </h3>
                     <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
-                      Once client payment is received in Infinix escrow, start their plan here. The plan will become active immediately and begin accruing 0.5% daily (15% monthly) in the investor&apos;s app.
+                      Once client payment is received in Infinix escrow, start their plan here. The plan will become active immediately and begin accruing daily returns in the investor&apos;s app.
                     </p>
                   </div>
                   {onOpenAssignModal && (
@@ -853,7 +865,7 @@ export function ClientDetailModal({
                         <th className="py-3 px-4">Registered Date</th>
                         <th className="py-3 px-4">Investment Plan</th>
                         <th className="py-3 px-4">Invested Capital</th>
-                        <th className="py-3 px-4">Referee Monthly ROI (15%)</th>
+                        <th className="py-3 px-4">Referee Monthly ROI</th>
                         <th className="py-3 px-4 text-right">
                           Monthly Yield ({referralStats.roiPct}%)
                         </th>
@@ -941,7 +953,7 @@ export function ClientDetailModal({
                           Active Withdrawal Claim Awaiting Approval
                         </h4>
                         <p className="text-[11px] text-amber-200/80 mt-0.5">
-                          Claimed Month {pendingWithdrawal.monthIndex} of 14 distribution ({formatINR(pendingWithdrawal.amount)}) for {client.bankAccount}. Custodian fee waived.
+                          Claimed Month {pendingWithdrawal.monthIndex} of {planDuration} distribution ({formatINR(pendingWithdrawal.amount)}) for {client.bankAccount}. Custodian fee waived.
                         </p>
                       </div>
                     </div>
@@ -1074,16 +1086,7 @@ export function ClientDetailModal({
         {/* Modal Footer Quick Actions */}
         <div className="p-4 px-6 border-t border-[#1E293B] bg-[#080C14] flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            {!client.isPhoneVerified && (
-              <button
-                onClick={handleVerifyPhone}
-                className="px-3.5 py-2 rounded-xl bg-emerald-500 text-black font-extrabold text-xs hover:brightness-110 transition-all shadow"
-              >
-                ✓ Verify Phone Now
-              </button>
-            )}
-
-            {client.isPhoneVerified && client.assignedPlanStatus !== 'active' && onOpenAssignModal && (
+            {client.assignedPlanStatus !== 'active' && onOpenAssignModal && (
               <button
                 onClick={() => onOpenAssignModal(client.id)}
                 className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white font-extrabold text-xs hover:brightness-110 shadow-md shadow-emerald-500/20 transition-all flex items-center gap-1.5"
