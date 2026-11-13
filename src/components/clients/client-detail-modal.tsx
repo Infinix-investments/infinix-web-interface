@@ -108,34 +108,99 @@ export function ClientDetailModal({
     }
   };
 
-  const assignedPlan = plans.find(
-    (p) =>
-      p.id === client.assignedPlanId ||
-      (p as any).planId === client.assignedPlanId ||
-      (client.assignedPlanName &&
-        p.planName.toLowerCase() === client.assignedPlanName.toLowerCase())
-  );
-  const planDuration = assignedPlan?.durationMonths ?? 14;
-  const planDailyRate = assignedPlan?.dailyReturnPct ?? 0.5;
-  const planMonthlyPct = assignedPlan?.monthlyReturnPct ?? 15.0;
-  const planGrossTotalReturnPct =
-    assignedPlan?.grossTotalReturnPct ?? planMonthlyPct * planDuration;
+  const displayPlans = useMemo(() => {
+    if (client.activePlans && client.activePlans.length > 0) {
+      return client.activePlans.map((p, idx) => {
+        const start = p.startDate ? new Date(p.startDate) : new Date();
+        const duration = p.durationMonths || 14;
+        const maxDays = duration * 30;
+        const days = Math.max(0, Math.floor((Date.now() - start.getTime()) / (1000 * 60 * 60 * 24)));
+        const effDays = Math.min(maxDays, days);
+        const dailyRate = p.dailyReturnPct ?? 0.5;
+        const monthlyRate = p.monthlyReturnPct ?? 15.0;
+        const grossRate = p.grossTotalReturnPct ?? (monthlyRate * duration);
+        const daily = (p.capitalAmount * dailyRate) / 100;
+        const accrued = daily * effDays;
+        const monthly = (p.capitalAmount * monthlyRate) / 100;
+        const grossReturn = (p.capitalAmount * grossRate) / 100;
+        return {
+          ...p,
+          index: idx + 1,
+          durationMonths: duration,
+          daysElapsed: days,
+          effectiveDays: effDays,
+          maxDays,
+          dailyProfit: daily,
+          accruedProfit: accrued,
+          monthlyPayout: monthly,
+          grossReturn,
+        };
+      });
+    }
 
-  const monthlyPayout = client.assignedPlanAmount
-    ? (client.assignedPlanAmount * planMonthlyPct) / 100
-    : 0;
-  const dailyProfit = client.assignedPlanAmount
-    ? (client.assignedPlanAmount * planDailyRate) / 100
-    : 0;
+    if (client.assignedPlanStatus === 'active' && client.assignedPlanAmount && client.assignedPlanAmount > 0) {
+      const assignedPlan = plans.find(
+        (p) =>
+          p.id === client.assignedPlanId ||
+          (p as any).planId === client.assignedPlanId ||
+          (client.assignedPlanName &&
+            p.planName.toLowerCase() === client.assignedPlanName.toLowerCase())
+      );
+      const planDuration = assignedPlan?.durationMonths ?? 14;
+      const planDailyRate = assignedPlan?.dailyReturnPct ?? 0.5;
+      const planMonthlyPct = assignedPlan?.monthlyReturnPct ?? 15.0;
+      const planGrossTotalReturnPct =
+        assignedPlan?.grossTotalReturnPct ?? planMonthlyPct * planDuration;
+
+      const start = client.assignedPlanStartDate ? new Date(client.assignedPlanStartDate) : new Date();
+      const maxDays = planDuration * 30;
+      const days = Math.max(0, Math.floor((Date.now() - start.getTime()) / (1000 * 60 * 60 * 24)));
+      const effDays = Math.min(maxDays, days);
+      const daily = (client.assignedPlanAmount * planDailyRate) / 100;
+      const accrued = daily * effDays;
+      const monthly = (client.assignedPlanAmount * planMonthlyPct) / 100;
+      const grossReturn = (client.assignedPlanAmount * planGrossTotalReturnPct) / 100;
+
+      return [
+        {
+          planInstanceId: 'primary-plan',
+          planId: client.assignedPlanId || 'plan-default',
+          planName: client.assignedPlanName || assignedPlan?.planName || 'Private Wealth Accelerator',
+          capitalAmount: client.assignedPlanAmount,
+          startDate: client.assignedPlanStartDate || new Date().toISOString().split('T')[0],
+          durationMonths: planDuration,
+          dailyReturnPct: planDailyRate,
+          monthlyReturnPct: planMonthlyPct,
+          grossTotalReturnPct: planGrossTotalReturnPct,
+          status: 'active' as const,
+          index: 1,
+          daysElapsed: days,
+          effectiveDays: effDays,
+          maxDays,
+          dailyProfit: daily,
+          accruedProfit: accrued,
+          monthlyPayout: monthly,
+          grossReturn,
+        },
+      ];
+    }
+
+    return [];
+  }, [client, plans]);
+
+  const totalCapitalAllocated = displayPlans.reduce((sum, p) => sum + p.capitalAmount, 0);
+  const totalDailyProfit = displayPlans.reduce((sum, p) => sum + p.dailyProfit, 0);
+  const totalAccruedReturns = displayPlans.reduce((sum, p) => sum + p.accruedProfit, 0);
+  const totalMonthlyPayout = displayPlans.reduce((sum, p) => sum + p.monthlyPayout, 0);
+  const totalMaturityGross = displayPlans.reduce((sum, p) => sum + p.grossReturn, 0);
+
+  const monthlyPayout = totalMonthlyPayout;
+  const dailyProfit = totalDailyProfit;
   const planStart = client.assignedPlanStartDate ? new Date(client.assignedPlanStartDate) : new Date();
-  const maxDays = planDuration * 30;
-  const daysElapsed = Math.max(1, Math.min(maxDays, Math.floor((Date.now() - planStart.getTime()) / (1000 * 60 * 60 * 24)) + 1));
-  const totalAccruedSoFar = daysElapsed * dailyProfit;
+  const daysElapsed = Math.max(1, Math.min(420, Math.floor((Date.now() - planStart.getTime()) / (1000 * 60 * 60 * 24)) + 1));
+  const totalAccruedSoFar = totalAccruedReturns;
   const monthlyCapitalReturn = monthlyPayout / 2;
   const monthlyProfitReturn = monthlyPayout / 2;
-  const totalMaturityGross = client.assignedPlanAmount
-    ? (client.assignedPlanAmount * planGrossTotalReturnPct) / 100
-    : 0;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-in fade-in duration-200">
@@ -486,187 +551,138 @@ export function ClientDetailModal({
             </div>
           )}
 
-          {/* TAB 2: INVESTMENT SCHEDULE & TRANCHE */}
+          {/* TAB 2: INVESTMENT SCHEDULE & ALL ACTIVE PLANS */}
           {activeTab === 'plan' && (
             <div className="space-y-6">
-              {client.assignedPlanStatus === 'active' ? (
+              {displayPlans.length > 0 ? (
                 <>
-                  {/* Plan Overview Card */}
-                  <div className="rounded-2xl bg-gradient-to-br from-[#0D131F] to-[#141C2E] border border-[#D4AF37]/40 p-6 space-y-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <span className="px-2.5 py-1 rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 text-[#D4AF37] font-bold text-[10px] uppercase tracking-wider">
-                          Contractual Structured Vehicle
-                        </span>
-                        <h3 className="text-lg font-black text-white mt-2">
-                          {client.assignedPlanName}
-                        </h3>
-                        <p className="text-xs text-slate-400 mt-1">
-                          Private contractual high-yield wealth tranche providing {planMonthlyPct}% monthly distribution ({planDailyRate}% daily) over a {planDuration}-month contractual period. Total gross payout: {planGrossTotalReturnPct}%.
-                        </p>
-                      </div>
-
-                      {onOpenAssignModal && (
-                        <button
-                          onClick={() => onOpenAssignModal(client.id)}
-                          className="px-3.5 py-1.5 rounded-xl bg-[#080C14] hover:bg-[#1E293B] border border-[#1E293B] text-slate-300 hover:text-white font-bold text-xs transition-all shrink-0"
-                        >
-                          + Allocate Additional Plan
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Progress Bar Month Index */}
-                    <div className="pt-2">
-                      <div className="flex items-center justify-between text-xs mb-1.5">
-                        <span className="font-bold text-white">
-                          Tenure Progress: Month {client.currentMonthIndex} of {planDuration}
-                        </span>
-                        <span className="font-bold text-[#D4AF37]">
-                          {Math.round((client.currentMonthIndex / planDuration) * 100)}% Complete
-                        </span>
-                      </div>
-                      <div className="w-full h-3 rounded-full bg-[#080C14] border border-[#1E293B] overflow-hidden p-0.5">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] to-[#F59E0B] transition-all duration-500"
-                          style={{
-                            width: `${Math.min(100, Math.round((client.currentMonthIndex / planDuration) * 100))}%`,
-                          }}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1">
-                        <span>Started: {client.assignedPlanStartDate || '2026-10-01'}</span>
-                        <span>Maturity: {planDuration} Months</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Daily Incremental Accrual Card */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 rounded-2xl bg-[#080C14] border border-emerald-500/40">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          Daily Increment (+{planDailyRate}%)
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">
-                          Active Daily Accrual
-                        </span>
-                      </div>
-                      <div className="text-2xl font-black text-emerald-400 mt-1">
-                        +{formatINR(dailyProfit)}
-                        <span className="text-xs text-slate-400 font-normal"> / day</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 mt-1">
-                        Accrues every 24 hours on {formatINR(client.assignedPlanAmount)} principal
-                      </p>
-                    </div>
-
-                    <div className="p-4 rounded-2xl bg-[#080C14] border border-[#D4AF37]/40">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          Accrued Returns to Date
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] font-bold text-[10px]">
-                          Day {daysElapsed} of {maxDays}
-                        </span>
-                      </div>
-                      <div className="text-2xl font-black text-white mt-1">
-                        {formatINR(totalAccruedSoFar)}
-                      </div>
-                      <p className="text-[11px] text-slate-400 mt-1">
-                        Accumulated across {daysElapsed} active calendar days
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Monthly Return Structure Card */}
-                  <div className="rounded-2xl bg-[#080C14] border border-[#1E293B] p-5 space-y-4">
-                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                      <Percent className="w-3.5 h-3.5 text-[#D4AF37]" />
-                      <span>{planMonthlyPct}% Monthly Distribution Formula</span>
-                    </h4>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                      <div className="p-4 rounded-xl bg-[#0D131F] border border-[#1E293B]">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                          Total Monthly Payout ({planMonthlyPct}%)
-                        </span>
-                        <div className="text-xl font-black text-white mt-1">
-                          {formatINR(monthlyPayout)}
-                        </div>
-                        <span className="text-[10px] text-emerald-400 mt-1 block font-semibold">
-                          Disbursed each 30-day window
-                        </span>
-                      </div>
-
-                      <div className="p-4 rounded-xl bg-[#0D131F] border border-[#1E293B]">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                          {(planMonthlyPct / 2).toFixed(1)}% Principal Return
-                        </span>
-                        <div className="text-xl font-black text-blue-400 mt-1">
-                          {formatINR(monthlyCapitalReturn)}
-                        </div>
-                        <span className="text-[10px] text-slate-400 mt-1 block">
-                          Systematic capital repayment
-                        </span>
-                      </div>
-
-                      <div className="p-4 rounded-xl bg-[#0D131F] border border-[#1E293B]">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                          {(planMonthlyPct / 2).toFixed(1)}% Net Profit Yield
-                        </span>
-                        <div className="text-xl font-black text-emerald-400 mt-1">
-                          {formatINR(monthlyProfitReturn)}
-                        </div>
-                        <span className="text-[10px] text-slate-400 mt-1 block">
-                          Contractual net gain
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-between text-xs">
-                      <div>
-                        <span className="font-bold text-blue-300 block">
-                          Total {planDuration}-Month Gross Yield ({planGrossTotalReturnPct}%)
-                        </span>
-                        <span className="text-[11px] text-blue-200/80">
-                          {formatINR(totalMaturityGross)} total gross return across {planDuration} months
-                        </span>
-                      </div>
-                      <div className="text-base font-black text-white text-right">
-                        {formatINR(totalMaturityGross)}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Current Month Status */}
-                  <div className="rounded-2xl bg-[#080C14] border border-[#1E293B] p-5 flex items-center justify-between gap-4">
+                  {/* Top Action & Overview */}
+                  <div className="flex items-center justify-between gap-4 flex-wrap pb-2 border-b border-[#1E293B]">
                     <div>
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                        Month {client.currentMonthIndex} Payout Window Status
-                      </span>
-                      <div className="text-sm font-bold text-white mt-1 flex items-center gap-2">
-                        {client.currentMonthWithdrawn ? (
-                          <span className="text-emerald-400 flex items-center gap-1.5">
-                            <CheckCircle className="w-4 h-4" />
-                            Payout claimed & disbursed ({client.lastWithdrawalDate || 'Settled'})
-                          </span>
-                        ) : (
-                          <span className="text-amber-400 flex items-center gap-1.5">
-                            <Clock className="w-4 h-4" />
-                            Payout available for client claim in mobile app
-                          </span>
-                        )}
-                      </div>
+                      <h3 className="text-base font-black text-white">
+                        Active Investment Contracts ({displayPlans.length})
+                      </h3>
+                      <p className="text-xs text-slate-400">
+                        {displayPlans.length > 1
+                          ? `${displayPlans.length} plans running concurrently in parallel with independent terms & timelines.`
+                          : 'Independent high-yield private contract actively accruing returns.'}
+                      </p>
                     </div>
 
-                    <div className="text-right">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                        Net Transfer
+                    {onOpenAssignModal && (
+                      <button
+                        onClick={() => onOpenAssignModal(client.id)}
+                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white font-extrabold text-xs hover:brightness-110 shadow-md shadow-emerald-500/20 transition-all flex items-center gap-1.5"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        <span>+ Allocate Additional Plan</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* ALL INDIVIDUAL ACTIVE PLANS (NO OVERWRITING, FULL INDIVIDUAL VISIBILITY) */}
+                  <div className="space-y-4">
+                    {displayPlans.map((p, idx) => (
+                      <div
+                        key={p.planInstanceId || idx}
+                        className="rounded-2xl bg-gradient-to-br from-[#0D131F] to-[#141C2E] border border-[#D4AF37]/30 p-5 space-y-4 hover:border-[#D4AF37]/60 transition-all shadow-lg"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[10px] uppercase">
+                                Plan #{p.index || idx + 1} Active
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 text-[#D4AF37] font-bold text-[10px]">
+                                {p.durationMonths} Months Term
+                              </span>
+                            </div>
+                            <h4 className="text-base font-black text-white">{p.planName}</h4>
+                            <p className="text-xs text-slate-400">
+                              Started: <strong className="text-white">{p.startDate}</strong> • Day {p.daysElapsed} of {p.maxDays} ({Math.min(100, Math.round((p.daysElapsed / (p.maxDays || 1)) * 100))}%)
+                            </p>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                              Invested Capital
+                            </span>
+                            <span className="text-lg font-black text-white">
+                              {formatINR(p.capitalAmount)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Progress Bar for this plan */}
+                        <div className="space-y-1">
+                          <div className="w-full h-2 rounded-full bg-[#080C14] border border-[#1E293B] overflow-hidden p-0.5">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] to-emerald-400 transition-all duration-500"
+                              style={{
+                                width: `${Math.min(100, Math.max(3, Math.round((p.daysElapsed / (p.maxDays || 1)) * 100)))}%`,
+                              }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-[10px] text-slate-500">
+                            <span>Start: {p.startDate}</span>
+                            <span className="text-slate-400 font-semibold">
+                              {Math.max(0, p.maxDays - p.daysElapsed)} days remaining
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Individual Plan Metrics Breakdown */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2 border-t border-[#1E293B] text-xs">
+                          <div className="p-2.5 rounded-xl bg-[#080C14] border border-[#1E293B]">
+                            <span className="text-[9px] uppercase font-bold text-slate-400 block">Daily Increment</span>
+                            <span className="font-extrabold text-emerald-400 text-sm">+{formatINR(p.dailyProfit)}</span>
+                            <span className="text-[9px] text-slate-500 block">+{p.dailyReturnPct}% / day</span>
+                          </div>
+                          <div className="p-2.5 rounded-xl bg-[#080C14] border border-[#1E293B]">
+                            <span className="text-[9px] uppercase font-bold text-slate-400 block">Accrued Returns</span>
+                            <span className="font-extrabold text-[#D4AF37] text-sm">+{formatINR(p.accruedProfit)}</span>
+                            <span className="text-[9px] text-slate-500 block">{p.daysElapsed} days accrued</span>
+                          </div>
+                          <div className="p-2.5 rounded-xl bg-[#080C14] border border-[#1E293B]">
+                            <span className="text-[9px] uppercase font-bold text-slate-400 block">Monthly Payout</span>
+                            <span className="font-extrabold text-white text-sm">{formatINR(p.monthlyPayout)}</span>
+                            <span className="text-[9px] text-slate-500 block">+{p.monthlyReturnPct}% / mo</span>
+                          </div>
+                          <div className="p-2.5 rounded-xl bg-[#080C14] border border-[#1E293B]">
+                            <span className="text-[9px] uppercase font-bold text-slate-400 block">Maturity Gross</span>
+                            <span className="font-extrabold text-emerald-400 text-sm">{formatINR(p.grossReturn)}</span>
+                            <span className="text-[9px] text-slate-500 block">{p.grossTotalReturnPct}% total</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* PORTFOLIO TOTALS AGGREGATION */}
+                  <div className="rounded-2xl bg-[#080C14] border border-[#D4AF37]/40 p-5 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-[#1E293B]">
+                      <span className="text-xs font-bold text-[#D4AF37] uppercase tracking-wider">
+                        Combined Portfolio Summary ({displayPlans.length} Plans)
                       </span>
-                      <span className="text-base font-black text-white">
-                        {formatINR(monthlyPayout)}
+                      <span className="text-xs text-slate-400">
+                        Total Capital: <strong className="text-white">{formatINR(totalCapitalAllocated)}</strong>
                       </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                      <div className="p-3 rounded-xl bg-[#0D131F] border border-[#1E293B]">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase block">Total Daily Increment</span>
+                        <div className="text-lg font-black text-emerald-400 mt-1">+{formatINR(totalDailyProfit)} / day</div>
+                      </div>
+                      <div className="p-3 rounded-xl bg-[#0D131F] border border-[#1E293B]">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase block">Total Accrued to Date</span>
+                        <div className="text-lg font-black text-[#D4AF37] mt-1">+{formatINR(totalAccruedReturns)}</div>
+                      </div>
+                      <div className="p-3 rounded-xl bg-[#0D131F] border border-[#1E293B]">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase block">Total Monthly Distributions</span>
+                        <div className="text-lg font-black text-white mt-1">{formatINR(totalMonthlyPayout)} / mo</div>
+                      </div>
                     </div>
                   </div>
                 </>

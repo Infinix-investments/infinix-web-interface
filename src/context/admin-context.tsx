@@ -260,24 +260,71 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     const resolvedPlanId = plan.id || (plan as any).planId;
     const today = startDate || new Date().toISOString().split("T")[0];
 
+    const newPlan = {
+      planInstanceId: `plan-${Date.now().toString().slice(-6)}`,
+      planId: resolvedPlanId,
+      planName: plan.planName,
+      capitalAmount: amount,
+      startDate: today,
+      durationMonths: plan.durationMonths || 14,
+      dailyReturnPct: plan.dailyReturnPct ?? 0.5,
+      monthlyReturnPct: plan.monthlyReturnPct ?? 15.0,
+      grossTotalReturnPct: plan.grossTotalReturnPct ?? ((plan.monthlyReturnPct ?? 15.0) * (plan.durationMonths || 14)),
+      status: 'active' as const,
+      paymentReference: paymentReference || '',
+      assignedAt: new Date().toISOString(),
+    };
+
     setClients((prev) =>
-      prev.map((c) =>
-        c.id === clientId || c.clientId === clientId || c.id === resolvedClientId || c.clientId === resolvedClientId
-          ? {
-              ...c,
-              assignedPlanId: resolvedPlanId,
-              assignedPlanName: plan.planName,
-              assignedPlanAmount: c.assignedPlanStatus === 'active' ? (c.assignedPlanAmount || 0) + amount : amount,
-              assignedPlanStartDate: c.assignedPlanStartDate || today,
-              assignedPlanStatus: "active",
-              totalAum: c.assignedPlanStatus === 'active' ? (c.totalAum || 0) + amount : amount,
-              currentMonthIndex: c.currentMonthIndex || 1,
-              currentMonthWithdrawn: false,
-              paymentVerified: true,
-              paymentReference: paymentReference || "Bank Escrow Verified",
-            }
-          : c,
-      ),
+      prev.map((c) => {
+        if (c.id === clientId || c.clientId === clientId || c.id === resolvedClientId || c.clientId === resolvedClientId) {
+          const existingPlans = Array.isArray(c.activePlans) ? [...c.activePlans] : [];
+          // If activePlans was empty but client already had an active plan, preserve it!
+          if (existingPlans.length === 0 && c.assignedPlanId && c.assignedPlanAmount && c.assignedPlanAmount > 0) {
+            const prevP = plans.find((p) => p.id === c.assignedPlanId || (p as any).planId === c.assignedPlanId);
+            const prevDuration = prevP?.durationMonths || 14;
+            const prevDaily = prevP?.dailyReturnPct ?? 0.5;
+            const prevMonthly = prevP?.monthlyReturnPct ?? 15.0;
+            const prevGross = prevP?.grossTotalReturnPct ?? (prevMonthly * prevDuration);
+
+            existingPlans.push({
+              planInstanceId: `plan-initial-${c.clientId || c.id}`,
+              planId: c.assignedPlanId,
+              planName: c.assignedPlanName || prevP?.planName || 'Initial Plan',
+              capitalAmount: c.assignedPlanAmount,
+              startDate: c.assignedPlanStartDate || today,
+              durationMonths: prevDuration,
+              dailyReturnPct: prevDaily,
+              monthlyReturnPct: prevMonthly,
+              grossTotalReturnPct: prevGross,
+              status: 'active',
+              paymentReference: 'Initial Plan',
+              assignedAt: c.assignedPlanStartDate || new Date().toISOString(),
+            });
+          }
+          existingPlans.push(newPlan);
+
+          const totalCap = existingPlans.filter(p => p.status === 'active').reduce((sum, p) => sum + (Number(p.capitalAmount) || 0), 0);
+          const validDates = existingPlans.filter(p => p.status === 'active' && p.startDate).map(p => new Date(p.startDate).getTime()).filter(t => !isNaN(t));
+          const earliestDate = validDates.length > 0 ? new Date(Math.min(...validDates)).toISOString().split('T')[0] : (c.assignedPlanStartDate || today);
+
+          return {
+            ...c,
+            assignedPlanId: resolvedPlanId,
+            assignedPlanName: plan.planName,
+            assignedPlanAmount: totalCap,
+            assignedPlanStartDate: earliestDate,
+            assignedPlanStatus: "active" as const,
+            totalAum: totalCap,
+            activePlans: existingPlans,
+            currentMonthIndex: c.currentMonthIndex || 1,
+            currentMonthWithdrawn: false,
+            paymentVerified: true,
+            paymentReference: paymentReference || "Bank Escrow Verified",
+          };
+        }
+        return c;
+      }),
     );
 
     // If client was referred by someone, update referral record to active

@@ -211,8 +211,19 @@ export function ClientsView({
                   );
                   const planDuration = assignedPlan?.durationMonths ?? 14;
                   const planMonthlyPct = assignedPlan?.monthlyReturnPct ?? 15.0;
-                  const monthlyPayout = client.assignedPlanAmount
-                    ? (client.assignedPlanAmount * planMonthlyPct) / 100
+
+                  const clientActivePlans = Array.isArray(client.activePlans) && client.activePlans.length > 0
+                    ? client.activePlans.filter((p) => p.status === 'active')
+                    : [];
+
+                  const totalPlanCapital = clientActivePlans.length > 0
+                    ? clientActivePlans.reduce((sum, p) => sum + (Number(p.capitalAmount) || 0), 0)
+                    : (client.assignedPlanAmount || 0);
+
+                  const monthlyPayout = clientActivePlans.length > 0
+                    ? clientActivePlans.reduce((sum, p) => sum + ((Number(p.capitalAmount) || 0) * (p.monthlyReturnPct ?? 15.0)) / 100, 0)
+                    : totalPlanCapital
+                    ? (totalPlanCapital * planMonthlyPct) / 100
                     : 0;
 
                   // Live referral calculations
@@ -273,21 +284,33 @@ export function ClientsView({
                       <td className="py-4 px-5">
                         {client.assignedPlanStatus === 'active' ? (
                           <div>
-                            <div className="font-bold text-white text-xs flex items-center gap-1.5">
-                              <span>{formatINR(client.assignedPlanAmount)}</span>
-                              <span className="text-[10px] text-[#D4AF37] font-semibold">
-                                ({planDuration}-Month)
-                              </span>
+                            <div className="font-bold text-white text-xs flex items-center gap-1.5 flex-wrap">
+                              <span>{formatINR(totalPlanCapital)}</span>
+                              {clientActivePlans.length > 1 ? (
+                                <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[10px]">
+                                  {clientActivePlans.length} Contracts
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-[#D4AF37] font-semibold">
+                                  ({planDuration}-Month)
+                                </span>
+                              )}
                             </div>
                             <div className="text-[11px] text-emerald-400 font-semibold mt-0.5">
-                              {formatINR(monthlyPayout)} / mo ({planMonthlyPct}%)
+                              {formatINR(monthlyPayout)} / mo {clientActivePlans.length > 1 ? 'combined' : `(${planMonthlyPct}%)`}
                             </div>
                             <div className="text-[10px] text-slate-400 mt-0.5">
-                              Month {client.currentMonthIndex} of {planDuration} •{' '}
-                              {client.currentMonthWithdrawn ? (
-                                <span className="text-emerald-400 font-medium">✓ Withdrawn</span>
+                              {clientActivePlans.length > 1 ? (
+                                <span>{clientActivePlans.map((p) => `${p.durationMonths || 14}M`).join(' + ')} parallel</span>
                               ) : (
-                                <span className="text-amber-400 font-medium">● Claim Due</span>
+                                <>
+                                  Month {client.currentMonthIndex} of {planDuration} •{' '}
+                                  {client.currentMonthWithdrawn ? (
+                                    <span className="text-emerald-400 font-medium">✓ Withdrawn</span>
+                                  ) : (
+                                    <span className="text-amber-400 font-medium">● Claim Due</span>
+                                  )}
+                                </>
                               )}
                             </div>
                           </div>
