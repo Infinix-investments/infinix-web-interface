@@ -281,16 +281,22 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           const existingPlans = Array.isArray(c.activePlans) ? [...c.activePlans] : [];
           // If activePlans was empty but client already had an active plan, preserve it!
           if (existingPlans.length === 0 && c.assignedPlanId && c.assignedPlanAmount && c.assignedPlanAmount > 0) {
+            const prevP = plans.find((p) => p.id === c.assignedPlanId || (p as any).planId === c.assignedPlanId);
+            const prevDuration = prevP?.durationMonths || 14;
+            const prevDaily = prevP?.dailyReturnPct ?? 0.5;
+            const prevMonthly = prevP?.monthlyReturnPct ?? 15.0;
+            const prevGross = prevP?.grossTotalReturnPct ?? (prevMonthly * prevDuration);
+
             existingPlans.push({
               planInstanceId: `plan-initial-${c.clientId || c.id}`,
               planId: c.assignedPlanId,
-              planName: c.assignedPlanName || 'Initial Plan',
+              planName: c.assignedPlanName || prevP?.planName || 'Initial Plan',
               capitalAmount: c.assignedPlanAmount,
               startDate: c.assignedPlanStartDate || today,
-              durationMonths: 14,
-              dailyReturnPct: 0.5,
-              monthlyReturnPct: 15.0,
-              grossTotalReturnPct: 210,
+              durationMonths: prevDuration,
+              dailyReturnPct: prevDaily,
+              monthlyReturnPct: prevMonthly,
+              grossTotalReturnPct: prevGross,
               status: 'active',
               paymentReference: 'Initial Plan',
               assignedAt: c.assignedPlanStartDate || new Date().toISOString(),
