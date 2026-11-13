@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, TrendingUp, AlertCircle, ShieldCheck, Calendar, DollarSign, FileCheck } from 'lucide-react';
 import { useAdmin } from '@/context/admin-context';
 import { api } from '@/services/api';
+import { formatUSDT } from '@/utils/currency';
 
 interface AssignPlanModalProps {
   clientId?: string;
@@ -98,10 +99,10 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
   const totalPayout = (allocatedCapital * grossTotalReturnPct) / 100;
 
   const formatINR = (val: number) => {
-    return Math.round(val).toLocaleString('en-US') + ' USDT';
+    return formatUSDT(val);
   };
 
-  const handleSavePhoneAndVerify = async () => {
+  const handleSavePhone = async () => {
     if (!targetClient) return;
     const clean = phoneInput.trim();
     if (clean.length < 7) {
@@ -112,23 +113,9 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
       await api.updateClient(targetClient.id, { phone: clean, isPhoneVerified: true, kycStatus: 'verified' });
       targetClient.phone = clean;
       targetClient.isPhoneVerified = true;
-      setToast(`✓ Phone number ${clean} verified for ${targetClient.firstName}!`);
+      setToast(`✓ Phone number ${clean} saved for ${targetClient.firstName}!`);
     } catch {
       setToast('⚠️ Failed to save phone on server.');
-    }
-  };
-
-  const handleVerifyPhoneFirst = () => {
-    if (!targetClient) return;
-    if (!targetClient.phone || targetClient.phone.trim().length < 7) {
-      setToast('⚠️ Investor has not submitted a mobile phone number yet.');
-      return;
-    }
-    const res = verifyClientPhone(targetClient.id);
-    if (!res.success) {
-      setToast(res.message);
-    } else {
-      setToast(res.message);
     }
   };
 
@@ -226,7 +213,7 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
           {targetClient && (!targetClient.phone || targetClient.phone.trim().length < 7) && (
             <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
               <div className="text-[11px] text-amber-300">
-                ⚠️ Investor has no mobile phone submitted yet. You can attach & verify one now:
+                ⚠️ Investor has no mobile phone submitted yet. You can attach one now:
               </div>
               <div className="flex gap-2">
                 <input
@@ -238,10 +225,10 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
                 />
                 <button
                   type="button"
-                  onClick={handleSavePhoneAndVerify}
+                  onClick={handleSavePhone}
                   className="px-3 py-1.5 rounded-lg bg-emerald-500 text-black font-bold text-xs shrink-0"
                 >
-                  Save & Verify
+                  Save Phone
                 </button>
               </div>
             </div>
