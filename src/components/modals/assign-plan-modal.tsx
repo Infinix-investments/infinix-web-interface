@@ -47,14 +47,10 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
     return plans[0]?.id || '';
   });
 
-  const [allocatedCapital, setAllocatedCapital] = useState<number>(() => {
-    return initialClient?.assignedPlanAmount && initialClient.assignedPlanAmount > 0
-      ? initialClient.assignedPlanAmount
-      : 1000;
-  });
+  const [allocatedCapital, setAllocatedCapital] = useState<number>(1000);
 
   const [startDate, setStartDate] = useState<string>(() => {
-    return initialClient?.assignedPlanStartDate || new Date().toISOString().split('T')[0];
+    return new Date().toISOString().split('T')[0];
   });
 
   const [isPaymentVerified, setIsPaymentVerified] = useState<boolean>(true);
@@ -73,6 +69,8 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
     (c) => c.id === selectedClientId || c.clientId === selectedClientId
   );
 
+  const isAdditional = Boolean(targetClient && targetClient.assignedPlanStatus === 'active');
+
   // Directly find the selected plan. NEVER fallback to client's old plan name!
   const targetPlan =
     plans.find((p) => p.id === selectedPlanId || (p as any).planId === selectedPlanId) ||
@@ -86,25 +84,6 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
     if (client) {
       if (client.phone) {
         setPhoneInput(client.phone);
-      }
-      // If client has an assigned plan, pre-select it
-      if (client.assignedPlanId) {
-        const match = plans.find(
-          (p) =>
-            p.id === client.assignedPlanId ||
-            (p as any).planId === client.assignedPlanId ||
-            (client.assignedPlanName &&
-              p.planName.toLowerCase() === client.assignedPlanName.toLowerCase())
-        );
-        if (match) {
-          setSelectedPlanId(match.id);
-        }
-      }
-      if (client.assignedPlanAmount && client.assignedPlanAmount > 0) {
-        setAllocatedCapital(client.assignedPlanAmount);
-      }
-      if (client.assignedPlanStartDate) {
-        setStartDate(client.assignedPlanStartDate);
       }
     }
   };
@@ -200,10 +179,12 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
             </div>
             <div>
               <h3 className="text-lg font-black text-white tracking-tight">
-                Verify Payment & Start Client Plan
+                {isAdditional ? 'Allocate Additional Investment Plan' : 'Verify Payment & Start Client Plan'}
               </h3>
               <p className="text-xs text-slate-400">
-                Confirm received capital and activate {dailyRate}% daily ({monthlyRate}% monthly) accruals for {durationMonths} months
+                {isAdditional
+                  ? `Allocate an additional concurrent plan. All active plans run in parallel with individual timelines.`
+                  : `Confirm received capital and activate ${dailyRate}% daily (${monthlyRate}% monthly) accruals for ${durationMonths} months`}
               </p>
             </div>
           </div>
@@ -278,6 +259,24 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
               >
                 Verify Phone Now
               </button>
+            </div>
+          )}
+
+          {/* If client already has an active plan portfolio */}
+          {isAdditional && targetClient && (
+            <div className="p-3.5 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-start gap-2.5">
+              <TrendingUp className="w-4 h-4 text-[#D4AF37] shrink-0 mt-0.5" />
+              <div className="text-xs space-y-1">
+                <span className="font-bold text-white block">
+                  Current Active Portfolio: {formatINR(targetClient.assignedPlanAmount || 0)}
+                </span>
+                <span className="text-slate-300 block">
+                  This allocation will add +{formatINR(allocatedCapital)} as an independent parallel plan. Total active portfolio will become{' '}
+                  <strong className="text-emerald-400">
+                    {formatINR((targetClient.assignedPlanAmount || 0) + allocatedCapital)}
+                  </strong>.
+                </span>
+              </div>
             </div>
           )}
         </div>
@@ -422,7 +421,7 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
             className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white font-extrabold text-xs hover:brightness-110 active:scale-95 transition-all shadow-md shadow-emerald-500/20 flex items-center gap-2"
           >
             <CheckCircle className="w-4 h-4" />
-            <span>Verify Payment & Start Plan</span>
+            <span>{isAdditional ? 'Verify Payment & Allocate Additional Plan' : 'Verify Payment & Start Plan'}</span>
           </button>
         </div>
       </div>
