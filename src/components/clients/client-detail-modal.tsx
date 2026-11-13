@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   X,
   User,
@@ -110,7 +110,7 @@ export function ClientDetailModal({
 
   const displayPlans = useMemo(() => {
     if (client.activePlans && client.activePlans.length > 0) {
-      return client.activePlans.map((p, idx) => {
+      return client.activePlans.map((p: any, idx: number) => {
         const start = p.startDate ? new Date(p.startDate) : new Date();
         const duration = p.durationMonths || 14;
         const maxDays = duration * 30;
@@ -188,16 +188,20 @@ export function ClientDetailModal({
     return [];
   }, [client, plans]);
 
-  const totalCapitalAllocated = displayPlans.reduce((sum, p) => sum + p.capitalAmount, 0);
-  const totalDailyProfit = displayPlans.reduce((sum, p) => sum + p.dailyProfit, 0);
-  const totalAccruedReturns = displayPlans.reduce((sum, p) => sum + p.accruedProfit, 0);
-  const totalMonthlyPayout = displayPlans.reduce((sum, p) => sum + p.monthlyPayout, 0);
-  const totalMaturityGross = displayPlans.reduce((sum, p) => sum + p.grossReturn, 0);
+  const totalCapitalAllocated = displayPlans.reduce((sum: number, p: any) => sum + (Number(p.capitalAmount) || 0), 0);
+  const totalDailyProfit = displayPlans.reduce((sum: number, p: any) => sum + (Number(p.dailyProfit) || 0), 0);
+  const totalAccruedReturns = displayPlans.reduce((sum: number, p: any) => sum + (Number(p.accruedProfit) || 0), 0);
+  const totalMonthlyPayout = displayPlans.reduce((sum: number, p: any) => sum + (Number(p.monthlyPayout) || 0), 0);
+  const totalMaturityGross = displayPlans.reduce((sum: number, p: any) => sum + (Number(p.grossReturn) || 0), 0);
+
+  const primaryPlan = displayPlans[0];
+  const planDuration = primaryPlan?.durationMonths ?? 14;
+  const planMonthlyPct = primaryPlan?.monthlyReturnPct ?? 15.0;
 
   const monthlyPayout = totalMonthlyPayout;
   const dailyProfit = totalDailyProfit;
   const planStart = client.assignedPlanStartDate ? new Date(client.assignedPlanStartDate) : new Date();
-  const daysElapsed = Math.max(1, Math.min(420, Math.floor((Date.now() - planStart.getTime()) / (1000 * 60 * 60 * 24)) + 1));
+  const daysElapsed = Math.max(1, Math.min(planDuration * 30, Math.floor((Date.now() - planStart.getTime()) / (1000 * 60 * 60 * 24)) + 1));
   const totalAccruedSoFar = totalAccruedReturns;
   const monthlyCapitalReturn = monthlyPayout / 2;
   const monthlyProfitReturn = monthlyPayout / 2;
@@ -582,7 +586,7 @@ export function ClientDetailModal({
 
                   {/* ALL INDIVIDUAL ACTIVE PLANS (NO OVERWRITING, FULL INDIVIDUAL VISIBILITY) */}
                   <div className="space-y-4">
-                    {displayPlans.map((p, idx) => (
+                    {displayPlans.map((p: any, idx: number) => (
                       <div
                         key={p.planInstanceId || idx}
                         className="rounded-2xl bg-gradient-to-br from-[#0D131F] to-[#141C2E] border border-[#D4AF37]/30 p-5 space-y-4 hover:border-[#D4AF37]/60 transition-all shadow-lg"
