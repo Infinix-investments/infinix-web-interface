@@ -15,6 +15,7 @@ import {
   Share2,
   Gift,
   Layers,
+  FileSpreadsheet,
   Award,
 } from 'lucide-react';
 import { useAdmin, AdminTab } from '@/context/admin-context';
@@ -75,6 +76,12 @@ export function Sidebar() {
           ? stats.pendingWithdrawalCount
           : undefined,
       badgeColor: 'bg-amber-500/20 text-amber-400 border border-amber-500/40',
+    },
+    {
+      id: 'reports',
+      label: 'Reports & Exports',
+      sublabel: 'Master Data & Styled Excel',
+      icon: FileSpreadsheet,
     },
     {
       id: 'audit',

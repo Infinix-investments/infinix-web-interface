@@ -25,6 +25,7 @@ export type AdminTab =
   | "withdrawals"
   | "referrals"
   | "levels"
+  | "reports"
   | "audit";
 
 interface AdminContextType {
