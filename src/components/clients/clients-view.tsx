@@ -123,7 +123,7 @@ export function ClientsView({
             )
           : c.assignedPlanAmount || 0;
 
-      if (c.assignedPlanStatus === "active" && cap > 0) {
+      if ((c.assignedPlanStatus === "active" || cap > 0) && cap > 0) {
         totalAum += cap;
         activePlansCount += 1;
         totalMonthlyLiability += (cap * 15) / 100;
@@ -718,7 +718,7 @@ export function ClientsView({
 
                       {/* Assigned Plan & AUM */}
                       <td className="py-4 px-5">
-                        {client.assignedPlanStatus === "active" &&
+                        {(client.assignedPlanStatus === "active" || totalPlanCapital > 0) &&
                         totalPlanCapital > 0 ? (
                           <div>
                             <div className="font-extrabold text-white text-xs flex items-center gap-1.5 flex-wrap">

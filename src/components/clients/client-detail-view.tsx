@@ -260,54 +260,63 @@ export function ClientDetailView({
   const displayPlans = useMemo(() => {
     if (!client) return [];
     if (client.activePlans && client.activePlans.length > 0) {
-      return client.activePlans.map((p: any, idx: number) => {
-        const start = p.startDate ? new Date(p.startDate) : new Date();
-        const duration = p.durationMonths || 14;
-        const maxDays = duration * 30;
-        const days = Math.max(
-          0,
-          Math.floor((Date.now() - start.getTime()) / (1000 * 60 * 60 * 24)),
-        );
-        const effDays = Math.min(maxDays, days);
-        const dailyRate = p.dailyReturnPct ?? 0.5;
-        const monthlyRate = p.monthlyReturnPct ?? 15.0;
-        const cap = Number(p.capitalAmount || 0);
-        const dailyProfit = cap * (dailyRate / 100);
-        const accruedProfit = effDays * dailyProfit;
-        const monthlyPayout = (cap * monthlyRate) / 100;
+      const activeContracts = client.activePlans
+        .filter((p: any) => (p.status || "active") === "active")
+        .map((p: any, idx: number) => {
+          const start = p.startDate && !isNaN(new Date(p.startDate).getTime())
+            ? new Date(p.startDate)
+            : new Date();
+          const duration = p.durationMonths || 14;
+          const maxDays = duration * 30;
+          const days = Math.max(
+            0,
+            Math.floor((Date.now() - start.getTime()) / (1000 * 60 * 60 * 24)),
+          );
+          const effDays = Math.min(maxDays, days);
+          const dailyRate = p.dailyReturnPct ?? 0.5;
+          const monthlyRate = p.monthlyReturnPct ?? 15.0;
+          const cap = Number(p.capitalAmount || 0);
+          const dailyProfit = cap * (dailyRate / 100) || 0;
+          const accruedProfit = effDays * dailyProfit || 0;
+          const monthlyPayout = (cap * monthlyRate) / 100 || 0;
 
-        return {
-          id: p.planInstanceId || `contract-${idx}`,
-          planName: p.planName || "14-Month Wealth Accelerator",
-          planId: p.planId || "plan-14m-15pct",
-          capitalAmount: cap,
-          startDate: p.startDate,
-          durationMonths: duration,
-          dailyReturnPct: dailyRate,
-          monthlyReturnPct: monthlyRate,
-          grossTotalReturnPct: p.grossTotalReturnPct || monthlyRate * duration,
-          dailyProfit,
-          accruedProfit,
-          monthlyPayout,
-          daysElapsed: days,
-          effectiveDays: effDays,
-          progressPct: Math.min(100, Math.round((effDays / maxDays) * 100)),
-          status: p.status || "active",
-          paymentReference: p.paymentReference || "Direct USDT Escrow",
-          assignedAt: p.assignedAt,
-        };
-      });
+          return {
+            id: p.planInstanceId || `contract-${idx}`,
+            planName: p.planName || "14-Month Wealth Accelerator",
+            planId: p.planId || "plan-14m-15pct",
+            capitalAmount: cap,
+            startDate: p.startDate,
+            durationMonths: duration,
+            dailyReturnPct: dailyRate,
+            monthlyReturnPct: monthlyRate,
+            grossTotalReturnPct: p.grossTotalReturnPct || monthlyRate * duration,
+            dailyProfit,
+            accruedProfit,
+            monthlyPayout,
+            daysElapsed: days,
+            effectiveDays: effDays,
+            progressPct: Math.min(100, Math.round((effDays / maxDays) * 100)),
+            status: p.status || "active",
+            paymentReference: p.paymentReference || "Direct USDT Escrow",
+            assignedAt: p.assignedAt,
+          };
+        });
+
+      if (activeContracts.length > 0) {
+        return activeContracts;
+      }
     }
 
-    if (client.assignedPlanId && client.assignedPlanStatus === "active") {
+    const fallbackCap = Number(client.assignedPlanAmount || client.totalAum || 0);
+    if (fallbackCap > 0) {
       const assignedPlan = plans.find(
         (p) =>
           p.id === client.assignedPlanId ||
           (p as any).planId === client.assignedPlanId,
       );
-      const cap = Number(client.assignedPlanAmount || 0);
+      const cap = fallbackCap;
       const duration = assignedPlan?.durationMonths || 14;
-      const start = client.assignedPlanStartDate
+      const start = client.assignedPlanStartDate && !isNaN(new Date(client.assignedPlanStartDate).getTime())
         ? new Date(client.assignedPlanStartDate)
         : new Date();
       const maxDays = duration * 30;
@@ -318,9 +327,9 @@ export function ClientDetailView({
       const effDays = Math.min(maxDays, days);
       const dailyRate = assignedPlan?.dailyReturnPct || 0.5;
       const monthlyRate = assignedPlan?.monthlyReturnPct || 15.0;
-      const dailyProfit = cap * (dailyRate / 100);
-      const accruedProfit = effDays * dailyProfit;
-      const monthlyPayout = (cap * monthlyRate) / 100;
+      const dailyProfit = cap * (dailyRate / 100) || 0;
+      const accruedProfit = effDays * dailyProfit || 0;
+      const monthlyPayout = (cap * monthlyRate) / 100 || 0;
 
       return [
         {
@@ -329,7 +338,7 @@ export function ClientDetailView({
             client.assignedPlanName ||
             assignedPlan?.planName ||
             "14-Month Wealth Accelerator",
-          planId: client.assignedPlanId,
+          planId: client.assignedPlanId || "plan-14m-15pct",
           capitalAmount: cap,
           startDate: client.assignedPlanStartDate,
           durationMonths: duration,
@@ -353,16 +362,16 @@ export function ClientDetailView({
     return [];
   }, [client, plans]);
 
-  const totalCapital = displayPlans.reduce(
-    (sum, p) => sum + p.capitalAmount,
-    0,
-  );
+  const totalCapital = displayPlans.length > 0
+    ? displayPlans.reduce((sum, p) => sum + (Number(p.capitalAmount) || 0), 0)
+    : (Number(client?.assignedPlanAmount) || Number(client?.totalAum) || 0);
+
   const totalAccruedProfit = displayPlans.reduce(
-    (sum, p) => sum + p.accruedProfit,
+    (sum, p) => sum + (Number(p.accruedProfit) || 0),
     0,
   );
   const totalMonthlyPayout = displayPlans.reduce(
-    (sum, p) => sum + p.monthlyPayout,
+    (sum, p) => sum + (Number(p.monthlyPayout) || 0),
     0,
   );
 

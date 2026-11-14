@@ -130,35 +130,46 @@ export function ClientDetailModal({
   const displayPlans = useMemo(() => {
     if (!client) return [];
     if (client.activePlans && client.activePlans.length > 0) {
-      return client.activePlans.map((p: any, idx: number) => {
-        const start = p.startDate ? new Date(p.startDate) : new Date();
-        const duration = p.durationMonths || 14;
-        const maxDays = duration * 30;
-        const days = Math.max(0, Math.floor((currentTime - start.getTime()) / (1000 * 60 * 60 * 24)));
-        const effDays = Math.min(maxDays, days);
-        const dailyRate = p.dailyReturnPct ?? 0.5;
-        const monthlyRate = p.monthlyReturnPct ?? 15.0;
-        const grossRate = p.grossTotalReturnPct ?? (monthlyRate * duration);
-        const daily = (p.capitalAmount * dailyRate) / 100;
-        const accrued = daily * effDays;
-        const monthly = (p.capitalAmount * monthlyRate) / 100;
-        const grossReturn = (p.capitalAmount * grossRate) / 100;
-        return {
-          ...p,
-          index: idx + 1,
-          durationMonths: duration,
-          daysElapsed: days,
-          effectiveDays: effDays,
-          maxDays,
-          dailyProfit: daily,
-          accruedProfit: accrued,
-          monthlyPayout: monthly,
-          grossReturn,
-        };
-      });
+      const activeContracts = client.activePlans
+        .filter((p: any) => (p.status || "active") === "active")
+        .map((p: any, idx: number) => {
+          const start = p.startDate && !isNaN(new Date(p.startDate).getTime())
+            ? new Date(p.startDate)
+            : new Date();
+          const duration = p.durationMonths || 14;
+          const maxDays = duration * 30;
+          const days = Math.max(0, Math.floor((currentTime - start.getTime()) / (1000 * 60 * 60 * 24)));
+          const effDays = Math.min(maxDays, days);
+          const dailyRate = p.dailyReturnPct ?? 0.5;
+          const monthlyRate = p.monthlyReturnPct ?? 15.0;
+          const grossRate = p.grossTotalReturnPct ?? (monthlyRate * duration);
+          const cap = Number(p.capitalAmount || 0);
+          const daily = (cap * dailyRate) / 100 || 0;
+          const accrued = daily * effDays || 0;
+          const monthly = (cap * monthlyRate) / 100 || 0;
+          const grossReturn = (cap * grossRate) / 100 || 0;
+          return {
+            ...p,
+            capitalAmount: cap,
+            index: idx + 1,
+            durationMonths: duration,
+            daysElapsed: days,
+            effectiveDays: effDays,
+            maxDays,
+            dailyProfit: daily,
+            accruedProfit: accrued,
+            monthlyPayout: monthly,
+            grossReturn,
+          };
+        });
+
+      if (activeContracts.length > 0) {
+        return activeContracts;
+      }
     }
 
-    if (client.assignedPlanStatus === 'active' && client.assignedPlanAmount && client.assignedPlanAmount > 0) {
+    const fallbackCap = Number(client.assignedPlanAmount || client.totalAum || 0);
+    if (fallbackCap > 0) {
       const assignedPlan = plans.find(
         (p) =>
           p.id === client.assignedPlanId ||
@@ -172,21 +183,24 @@ export function ClientDetailModal({
       const planGrossTotalReturnPct =
         assignedPlan?.grossTotalReturnPct ?? planMonthlyPct * planDuration;
 
-      const start = client.assignedPlanStartDate ? new Date(client.assignedPlanStartDate) : new Date();
+      const start = client.assignedPlanStartDate && !isNaN(new Date(client.assignedPlanStartDate).getTime())
+        ? new Date(client.assignedPlanStartDate)
+        : new Date();
       const maxDays = planDuration * 30;
       const days = Math.max(0, Math.floor((Date.now() - start.getTime()) / (1000 * 60 * 60 * 24)));
       const effDays = Math.min(maxDays, days);
-      const daily = (client.assignedPlanAmount * planDailyRate) / 100;
-      const accrued = daily * effDays;
-      const monthly = (client.assignedPlanAmount * planMonthlyPct) / 100;
-      const grossReturn = (client.assignedPlanAmount * planGrossTotalReturnPct) / 100;
+      const cap = fallbackCap;
+      const daily = (cap * planDailyRate) / 100 || 0;
+      const accrued = daily * effDays || 0;
+      const monthly = (cap * planMonthlyPct) / 100 || 0;
+      const grossReturn = (cap * planGrossTotalReturnPct) / 100 || 0;
 
       return [
         {
           planInstanceId: 'primary-plan',
           planId: client.assignedPlanId || 'plan-default',
           planName: client.assignedPlanName || assignedPlan?.planName || 'Private Wealth Accelerator',
-          capitalAmount: client.assignedPlanAmount,
+          capitalAmount: cap,
           startDate: client.assignedPlanStartDate || new Date().toISOString().split('T')[0],
           durationMonths: planDuration,
           dailyReturnPct: planDailyRate,
@@ -208,7 +222,9 @@ export function ClientDetailModal({
     return [];
   }, [client, plans, currentTime]);
 
-  const totalCapitalAllocated = displayPlans.reduce((sum: number, p: any) => sum + (Number(p.capitalAmount) || 0), 0);
+  const totalCapitalAllocated = displayPlans.length > 0
+    ? displayPlans.reduce((sum: number, p: any) => sum + (Number(p.capitalAmount) || 0), 0)
+    : (Number(client?.assignedPlanAmount) || Number(client?.totalAum) || 0);
   const totalDailyProfit = displayPlans.reduce((sum: number, p: any) => sum + (Number(p.dailyProfit) || 0), 0);
   const totalAccruedReturns = displayPlans.reduce((sum: number, p: any) => sum + (Number(p.accruedProfit) || 0), 0);
   const totalMonthlyPayout = displayPlans.reduce((sum: number, p: any) => sum + (Number(p.monthlyPayout) || 0), 0);

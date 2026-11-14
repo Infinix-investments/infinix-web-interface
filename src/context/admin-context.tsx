@@ -408,6 +408,24 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         paymentReference,
         plan.planName,
       )
+      .then((res) => {
+        if (res?.success && res?.data) {
+          const serverClient = res.data;
+          setClients((prev) =>
+            prev.map((c) =>
+              c.id === clientId || c.clientId === clientId || c.id === resolvedClientId || c.clientId === resolvedClientId
+                ? {
+                    ...c,
+                    ...serverClient,
+                    id: serverClient.clientId || c.id,
+                    clientId: serverClient.clientId || c.clientId,
+                    activePlans: Array.isArray(serverClient.activePlans) ? serverClient.activePlans : c.activePlans,
+                  }
+                : c
+            )
+          );
+        }
+      })
       .catch((err) => {
         console.error("Failed to assign plan on server:", err);
       });
