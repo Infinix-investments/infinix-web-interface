@@ -30,6 +30,8 @@ export type AdminTab =
 interface AdminContextType {
   activeTab: AdminTab;
   setActiveTab: (tab: AdminTab) => void;
+  selectedClientId: string | null;
+  setSelectedClientId: (id: string | null) => void;
   clients: ClientProfile[];
   plans: InvestmentPlanConfig[];
   withdrawals: WithdrawalRecord[];
@@ -40,6 +42,10 @@ interface AdminContextType {
     success: boolean;
     message: string;
   };
+  updateClientProfile: (
+    clientId: string,
+    updates: Partial<ClientProfile>,
+  ) => Promise<{ success: boolean; message: string }>;
   assignPlanToClient: (
     clientId: string,
     planId: string,
@@ -101,6 +107,7 @@ const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
 export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [clients, setClients] = useState<ClientProfile[]>([]);
   const [plans, setPlans] = useState<InvestmentPlanConfig[]>(INITIAL_PLANS);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>([]);
@@ -238,6 +245,46 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       success: true,
       message: `Phone number for ${client.firstName} ${client.lastName} successfully verified! You may now assign an investment plan.`,
     };
+  };
+
+  // 1b. UPDATE CLIENT PROFILE
+  const updateClientProfile = async (
+    clientId: string,
+    updates: Partial<ClientProfile>,
+  ): Promise<{ success: boolean; message: string }> => {
+    const client = clients.find((c) => c.id === clientId || c.clientId === clientId);
+    if (!client) return { success: false, message: "Client not found." };
+
+    const resolvedId = client.clientId || client.id;
+    setClients((prev) =>
+      prev.map((c) =>
+        c.id === clientId || c.clientId === clientId ? { ...c, ...updates } : c,
+      ),
+    );
+
+    try {
+      const res = await api.updateClient(resolvedId, updates);
+      if (res?.success) {
+        addAuditLog(
+          "Client Profile Updated",
+          "client_verification",
+          `Updated profile details for ${client.firstName} ${client.lastName} (${resolvedId}): ${Object.keys(updates).join(", ")}`,
+        );
+        return {
+          success: true,
+          message: `Client ${client.firstName} ${client.lastName} profile updated successfully.`,
+        };
+      }
+      return {
+        success: false,
+        message: res?.error || "Failed to update client profile on server.",
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err.message || "Network error updating client profile.",
+      };
+    }
   };
 
   // 2. ASSIGN INVESTMENT PLAN
@@ -842,6 +889,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       value={{
         activeTab,
         setActiveTab,
+        selectedClientId,
+        setSelectedClientId,
         clients,
         plans,
         withdrawals,
@@ -849,6 +898,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         referralTiers,
         auditLogs,
         verifyClientPhone,
+        updateClientProfile,
         assignPlanToClient,
         revokeClientPlan,
         createPlan,

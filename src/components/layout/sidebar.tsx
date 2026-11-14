@@ -53,8 +53,8 @@ export function Sidebar() {
     },
     {
       id: 'clients',
-      label: 'Registered Clients',
-      sublabel: 'Profiles, Phone & Referrals',
+      label: 'Client Management',
+      sublabel: 'Profiles, Portfolios & Directory',
       icon: Users,
       badge: stats.pendingPhoneCount > 0 ? stats.pendingPhoneCount : undefined,
       badgeColor: 'bg-amber-500/20 text-amber-400 border border-amber-500/40',

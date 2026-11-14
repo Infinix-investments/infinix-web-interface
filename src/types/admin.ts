@@ -27,6 +27,7 @@ export interface ClientProfile {
   phone: string;
   isPhoneVerified: boolean;
   kycStatus: KYCStatus;
+  tier?: string;
   assignedPlanId: string | null;
   assignedPlanName?: string;
   assignedPlanAmount?: number;
@@ -151,5 +152,7 @@ export interface ClientReferralSummary {
   neededForNext: number;
   plansRemainingForNext: number;
   monthlyCommissionYield: number;
+  totalEarnedCommissions?: number;
   refereeList: ReferredUserItem[];
+  referredClients?: any[];
 }

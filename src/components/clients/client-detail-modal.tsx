@@ -65,8 +65,7 @@ export function ClientDetailModal({
   const [toast, setToast] = useState('');
   const [customUtr, setCustomUtr] = useState('');
   const [approvingWdId, setApprovingWdId] = useState<string | null>(null);
-
-  if (!isOpen || !client) return null;
+  const [currentTime] = useState(() => Date.now());
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -74,12 +73,32 @@ export function ClientDetailModal({
   };
 
   // Compute live referral stats for this client
-  const referralStats = computeClientReferralStats(client, clients, referrals);
+  const referralStats = useMemo(() => {
+    if (!client) {
+      return {
+        referralCode: 'INF-0000',
+        totalReferred: 0,
+        activePlanReferrals: 0,
+        level: 0,
+        levelName: 'Level 0',
+        roiPct: 0,
+        neededForNext: 2,
+        plansRemainingForNext: 2,
+        monthlyCommissionYield: 0,
+        refereeList: [],
+        totalEarnedCommissions: 0,
+      };
+    }
+    return computeClientReferralStats(client, clients, referrals);
+  }, [client, clients, referrals]);
 
   // Get all withdrawals for this client
-  const clientWithdrawals = withdrawals.filter(
-    (w) => w.clientId === client.id || w.clientName.toLowerCase() === `${client.firstName} ${client.lastName}`.toLowerCase()
-  );
+  const clientWithdrawals = useMemo(() => {
+    if (!client) return [];
+    return withdrawals.filter(
+      (w) => w.clientId === client.id || w.clientName.toLowerCase() === `${client.firstName} ${client.lastName}`.toLowerCase()
+    );
+  }, [client, withdrawals]);
 
   const pendingWithdrawal = clientWithdrawals.find(
     (w) => w.status === 'pending_approval'
@@ -109,12 +128,13 @@ export function ClientDetailModal({
   };
 
   const displayPlans = useMemo(() => {
+    if (!client) return [];
     if (client.activePlans && client.activePlans.length > 0) {
       return client.activePlans.map((p: any, idx: number) => {
         const start = p.startDate ? new Date(p.startDate) : new Date();
         const duration = p.durationMonths || 14;
         const maxDays = duration * 30;
-        const days = Math.max(0, Math.floor((Date.now() - start.getTime()) / (1000 * 60 * 60 * 24)));
+        const days = Math.max(0, Math.floor((currentTime - start.getTime()) / (1000 * 60 * 60 * 24)));
         const effDays = Math.min(maxDays, days);
         const dailyRate = p.dailyReturnPct ?? 0.5;
         const monthlyRate = p.monthlyReturnPct ?? 15.0;
@@ -186,7 +206,7 @@ export function ClientDetailModal({
     }
 
     return [];
-  }, [client, plans]);
+  }, [client, plans, currentTime]);
 
   const totalCapitalAllocated = displayPlans.reduce((sum: number, p: any) => sum + (Number(p.capitalAmount) || 0), 0);
   const totalDailyProfit = displayPlans.reduce((sum: number, p: any) => sum + (Number(p.dailyProfit) || 0), 0);
@@ -198,10 +218,12 @@ export function ClientDetailModal({
   const planDuration = primaryPlan?.durationMonths ?? 14;
   const planMonthlyPct = primaryPlan?.monthlyReturnPct ?? 15.0;
 
+  if (!isOpen || !client) return null;
+
   const monthlyPayout = totalMonthlyPayout;
   const dailyProfit = totalDailyProfit;
   const planStart = client.assignedPlanStartDate ? new Date(client.assignedPlanStartDate) : new Date();
-  const daysElapsed = Math.max(1, Math.min(planDuration * 30, Math.floor((Date.now() - planStart.getTime()) / (1000 * 60 * 60 * 24)) + 1));
+  const daysElapsed = Math.max(1, Math.min(planDuration * 30, Math.floor((currentTime - planStart.getTime()) / (1000 * 60 * 60 * 24)) + 1));
   const totalAccruedSoFar = totalAccruedReturns;
   const monthlyCapitalReturn = monthlyPayout / 2;
   const monthlyProfitReturn = monthlyPayout / 2;

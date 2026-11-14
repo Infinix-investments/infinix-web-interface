@@ -63,6 +63,10 @@ class ApiClient {
     return this.request<any[]>(`/clients${q}`);
   }
 
+  async getClient(clientId: string) {
+    return this.request<any>(`/clients/${clientId}`);
+  }
+
   async createClient(data: any) {
     return this.request<any>('/clients', {
       method: 'POST',

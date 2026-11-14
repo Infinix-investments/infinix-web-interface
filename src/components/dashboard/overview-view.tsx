@@ -32,6 +32,7 @@ export function OverviewView({ onOpenAssignModal }: OverviewViewProps) {
     withdrawals,
     auditLogs,
     setActiveTab,
+    setSelectedClientId,
   } = useAdmin();
 
   const clientsWithoutPhone = clients.filter((c) => !isPhoneAdded(c.phone));
@@ -219,7 +220,10 @@ export function OverviewView({ onOpenAssignModal }: OverviewViewProps) {
 
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setActiveTab("clients")}
+                      onClick={() => {
+                        setSelectedClientId(client.id);
+                        setActiveTab("clients");
+                      }}
                       className="px-3 py-1.5 rounded-lg bg-[#141C2E] border border-[#1E293B] hover:bg-[#1E293B] text-slate-200 hover:text-white font-bold text-xs transition-all"
                     >
                       View Client

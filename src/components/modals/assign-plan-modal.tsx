@@ -26,7 +26,8 @@ interface AssignPlanModalProps {
 }
 
 export function AssignPlanModal({ clientId: initialClientId, planId: initialPlanId, onClose }: AssignPlanModalProps) {
-  const { clients, plans, assignPlanToClient } = useAdmin();
+  const { clients, plans, assignPlanToClient, updateClientProfile } = useAdmin();
+  const [currentTime] = useState(() => Date.now());
 
   // Selected client
   const [selectedClientId, setSelectedClientId] = useState<string>(() => {
@@ -131,9 +132,9 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
     if (!startDate) return 0;
     const s = new Date(startDate);
     if (isNaN(s.getTime())) return 0;
-    const diff = Math.floor((Date.now() - s.getTime()) / (1000 * 60 * 60 * 24));
+    const diff = Math.floor((currentTime - s.getTime()) / (1000 * 60 * 60 * 24));
     return Math.max(0, diff);
-  }, [startDate]);
+  }, [startDate, currentTime]);
 
   const handleClientChange = (clientId: string) => {
     setSelectedClientId(clientId);
@@ -157,9 +158,7 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
       return;
     }
     try {
-      await api.updateClient(targetClient.id, { phone: clean, isPhoneVerified: true, kycStatus: 'verified' });
-      targetClient.phone = clean;
-      targetClient.isPhoneVerified = true;
+      await updateClientProfile(targetClient.id, { phone: clean, isPhoneVerified: true, kycStatus: 'verified' });
       setToast(`✓ Phone number ${clean} saved for ${targetClient.firstName}!`);
     } catch {
       setToast('⚠️ Failed to save phone on server.');
@@ -169,9 +168,7 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
   const handleVerifyPhoneFirst = async () => {
     if (!targetClient) return;
     try {
-      await api.updateClient(targetClient.id, { isPhoneVerified: true, kycStatus: 'verified' });
-      targetClient.isPhoneVerified = true;
-      targetClient.kycStatus = 'verified';
+      await updateClientProfile(targetClient.id, { isPhoneVerified: true, kycStatus: 'verified' });
       setToast(`✓ Phone verified for ${targetClient.firstName}!`);
     } catch {
       setToast('⚠️ Failed to verify phone on server.');
@@ -358,7 +355,7 @@ export function AssignPlanModal({ clientId: initialClientId, planId: initialPlan
                 const s = new Date(c.startDate);
                 const days = isNaN(s.getTime())
                   ? 0
-                  : Math.max(0, Math.floor((Date.now() - s.getTime()) / (1000 * 60 * 60 * 24)));
+                  : Math.max(0, Math.floor((currentTime - s.getTime()) / (1000 * 60 * 60 * 24)));
                 const duration = c.durationMonths || 14;
                 const maxDays = duration * 30;
                 const dailyEarn = ((c.capitalAmount || 0) * (c.dailyReturnPct ?? 0.5)) / 100;

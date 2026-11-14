@@ -30,6 +30,8 @@ export function WithdrawalsView() {
     clients,
     approveWithdrawal,
     rejectWithdrawal,
+    setSelectedClientId,
+    setActiveTab,
     stats,
   } = useAdmin();
 
@@ -91,7 +93,8 @@ export function WithdrawalsView() {
       clients.find((c) => c.id === clientId) ||
       clients.find((c) => `${c.firstName} ${c.lastName}`.toLowerCase() === clientName.toLowerCase());
     if (client) {
-      setSelectedClientForDetail(client);
+      setSelectedClientId(client.id);
+      setActiveTab('clients');
     } else {
       showToast('Client profile not found in directory.');
     }
