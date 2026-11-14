@@ -1,40 +1,32 @@
-'use client';
+"use client";
 
-import React, { useState, useMemo } from 'react';
-import {
-  Search,
-  Filter,
-  CheckCircle,
-  XCircle,
-  Clock,
-  ShieldCheck,
-  AlertCircle,
-  PlusCircle,
-  Trash2,
-  Phone,
-  Mail,
-  Building,
-  Award,
-  Share2,
-  Eye,
-  TrendingUp,
-  Percent,
-  ArrowUpDown,
-  RotateCcw,
-  User,
-  Users,
-  DollarSign,
-  Calendar,
-  Sparkles,
-} from 'lucide-react';
-import { useAdmin } from '@/context/admin-context';
-import { ClientProfile } from '@/types/admin';
-import { ClientDetailView } from './client-detail-view';
-import { formatUSDT } from '@/utils/currency';
+import { useAdmin } from "@/context/admin-context";
+import { formatUSDT } from "@/utils/currency";
 import {
   computeClientReferralStats,
   REFERRAL_LEVEL_RULES,
-} from '@/utils/referral';
+} from "@/utils/referral";
+import {
+  AlertCircle,
+  ArrowUpDown,
+  Award,
+  Building,
+  Calendar,
+  CheckCircle,
+  Clock,
+  DollarSign,
+  Eye,
+  Filter,
+  Mail,
+  Phone,
+  RotateCcw,
+  Search,
+  Trash2,
+  TrendingUp,
+  Users,
+} from "lucide-react";
+import { useMemo, useState } from "react";
+import { ClientDetailView } from "./client-detail-view";
 
 interface ClientsViewProps {
   onOpenAssignModal: (clientId?: string, planId?: string) => void;
@@ -42,7 +34,12 @@ interface ClientsViewProps {
 }
 
 const isPhoneAdded = (phone?: string) =>
-  Boolean(phone && phone.trim().length > 0 && phone.trim().toLowerCase() !== 'n/a' && phone.trim() !== '—');
+  Boolean(
+    phone &&
+    phone.trim().length > 0 &&
+    phone.trim().toLowerCase() !== "n/a" &&
+    phone.trim() !== "—",
+  );
 
 export function ClientsView({
   onOpenAssignModal,
@@ -57,23 +54,40 @@ export function ClientsView({
     revokeClientPlan,
   } = useAdmin();
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [filterTab, setFilterTab] = useState<
-    'all' | 'active_plan' | 'pending_plan' | 'pending_verification' | 'phone_verified' | 'referral_partners'
-  >('all');
+    | "all"
+    | "active_plan"
+    | "pending_plan"
+    | "pending_verification"
+    | "phone_verified"
+    | "referral_partners"
+  >("all");
   const [sortBy, setSortBy] = useState<
-    'recent' | 'aum_desc' | 'aum_asc' | 'name_asc' | 'name_desc' | 'yield_desc' | 'referrals_desc'
-  >('recent');
-  const [tierFilter, setTierFilter] = useState<'all' | 'standard' | 'premium' | 'high_net_worth' | 'ultra_hnw'>('all');
-  const [actionToast, setActionToast] = useState('');
+    | "recent"
+    | "aum_desc"
+    | "aum_asc"
+    | "name_asc"
+    | "name_desc"
+    | "yield_desc"
+    | "referrals_desc"
+  >("recent");
+  const [tierFilter, setTierFilter] = useState<
+    "all" | "standard" | "premium" | "high_net_worth" | "ultra_hnw"
+  >("all");
+  const [actionToast, setActionToast] = useState("");
 
   const showToast = (msg: string) => {
     setActionToast(msg);
-    setTimeout(() => setActionToast(''), 4500);
+    setTimeout(() => setActionToast(""), 4500);
   };
 
   const handleRevoke = (clientId: string) => {
-    if (confirm('Are you sure you want to revoke the active plan from this investor?')) {
+    if (
+      confirm(
+        "Are you sure you want to revoke the active plan from this investor?",
+      )
+    ) {
       const res = revokeClientPlan(clientId);
       if (res.success) {
         showToast(res.message);
@@ -96,15 +110,20 @@ export function ClientsView({
     let totalMonthlyLiability = 0;
 
     clients.forEach((c) => {
-      const clientActivePlans = Array.isArray(c.activePlans) && c.activePlans.length > 0
-        ? c.activePlans.filter((p) => p.status === 'active')
-        : [];
+      const clientActivePlans =
+        Array.isArray(c.activePlans) && c.activePlans.length > 0
+          ? c.activePlans.filter((p) => p.status === "active")
+          : [];
 
-      const cap = clientActivePlans.length > 0
-        ? clientActivePlans.reduce((sum, p) => sum + (Number(p.capitalAmount) || 0), 0)
-        : (c.assignedPlanAmount || 0);
+      const cap =
+        clientActivePlans.length > 0
+          ? clientActivePlans.reduce(
+              (sum, p) => sum + (Number(p.capitalAmount) || 0),
+              0,
+            )
+          : c.assignedPlanAmount || 0;
 
-      if (c.assignedPlanStatus === 'active' && cap > 0) {
+      if (c.assignedPlanStatus === "active" && cap > 0) {
         totalAum += cap;
         activePlansCount += 1;
         totalMonthlyLiability += (cap * 15) / 100;
@@ -143,11 +162,16 @@ export function ClientsView({
     const filtered = clients.filter((c) => {
       const refStats = computeClientReferralStats(c, clients, referrals);
       const fullName = `${c.firstName} ${c.lastName}`.toLowerCase();
-      const clientActivePlans = Array.isArray(c.activePlans) && c.activePlans.length > 0
-        ? c.activePlans.filter((p) => p.status === 'active')
-        : [];
-      const planNames = clientActivePlans.map((p) => (p.planName || '').toLowerCase()).join(' ') +
-        ' ' + (c.assignedPlanName || '').toLowerCase();
+      const clientActivePlans =
+        Array.isArray(c.activePlans) && c.activePlans.length > 0
+          ? c.activePlans.filter((p) => p.status === "active")
+          : [];
+      const planNames =
+        clientActivePlans
+          .map((p) => (p.planName || "").toLowerCase())
+          .join(" ") +
+        " " +
+        (c.assignedPlanName || "").toLowerCase();
 
       // Search match
       const matchesSearch =
@@ -165,74 +189,98 @@ export function ClientsView({
       if (!matchesSearch) return false;
 
       // Tier filter
-      if (tierFilter !== 'all' && (c.tier || 'standard') !== tierFilter) {
+      if (tierFilter !== "all" && (c.tier || "standard") !== tierFilter) {
         return false;
       }
 
       // Filter tabs
-      if (filterTab === 'active_plan') return c.assignedPlanStatus === 'active' && (c.assignedPlanAmount || 0) > 0;
-      if (filterTab === 'pending_plan') return c.assignedPlanStatus !== 'active' || !c.assignedPlanId;
-      if (filterTab === 'pending_verification') return !isPhoneAdded(c.phone);
-      if (filterTab === 'phone_verified') return isPhoneAdded(c.phone);
-      if (filterTab === 'referral_partners') return refStats.totalReferred > 0;
+      if (filterTab === "active_plan")
+        return (
+          c.assignedPlanStatus === "active" && (c.assignedPlanAmount || 0) > 0
+        );
+      if (filterTab === "pending_plan")
+        return c.assignedPlanStatus !== "active" || !c.assignedPlanId;
+      if (filterTab === "pending_verification") return !isPhoneAdded(c.phone);
+      if (filterTab === "phone_verified") return isPhoneAdded(c.phone);
+      if (filterTab === "referral_partners") return refStats.totalReferred > 0;
 
       return true;
     });
 
     // Sorting
     return filtered.sort((a, b) => {
-      const aPlans = Array.isArray(a.activePlans) && a.activePlans.length > 0
-        ? a.activePlans.filter((p) => p.status === 'active')
-        : [];
-      const bPlans = Array.isArray(b.activePlans) && b.activePlans.length > 0
-        ? b.activePlans.filter((p) => p.status === 'active')
-        : [];
+      const aPlans =
+        Array.isArray(a.activePlans) && a.activePlans.length > 0
+          ? a.activePlans.filter((p) => p.status === "active")
+          : [];
+      const bPlans =
+        Array.isArray(b.activePlans) && b.activePlans.length > 0
+          ? b.activePlans.filter((p) => p.status === "active")
+          : [];
 
-      const aAum = aPlans.length > 0
-        ? aPlans.reduce((sum, p) => sum + (Number(p.capitalAmount) || 0), 0)
-        : (a.assignedPlanAmount || 0);
+      const aAum =
+        aPlans.length > 0
+          ? aPlans.reduce((sum, p) => sum + (Number(p.capitalAmount) || 0), 0)
+          : a.assignedPlanAmount || 0;
 
-      const bAum = bPlans.length > 0
-        ? bPlans.reduce((sum, p) => sum + (Number(p.capitalAmount) || 0), 0)
-        : (b.assignedPlanAmount || 0);
+      const bAum =
+        bPlans.length > 0
+          ? bPlans.reduce((sum, p) => sum + (Number(p.capitalAmount) || 0), 0)
+          : b.assignedPlanAmount || 0;
 
-      if (sortBy === 'aum_desc') return bAum - aAum;
-      if (sortBy === 'aum_asc') return aAum - bAum;
+      if (sortBy === "aum_desc") return bAum - aAum;
+      if (sortBy === "aum_asc") return aAum - bAum;
 
-      if (sortBy === 'name_asc') {
-        return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+      if (sortBy === "name_asc") {
+        return `${a.firstName} ${a.lastName}`.localeCompare(
+          `${b.firstName} ${b.lastName}`,
+        );
       }
-      if (sortBy === 'name_desc') {
-        return `${b.firstName} ${b.lastName}`.localeCompare(`${a.firstName} ${a.lastName}`);
+      if (sortBy === "name_desc") {
+        return `${b.firstName} ${b.lastName}`.localeCompare(
+          `${a.firstName} ${a.lastName}`,
+        );
       }
 
-      if (sortBy === 'yield_desc') {
+      if (sortBy === "yield_desc") {
         const aYield = (aAum * 15) / 100;
         const bYield = (bAum * 15) / 100;
         return bYield - aYield;
       }
 
-      if (sortBy === 'referrals_desc') {
-        const aRefs = computeClientReferralStats(a, clients, referrals).totalReferred;
-        const bRefs = computeClientReferralStats(b, clients, referrals).totalReferred;
+      if (sortBy === "referrals_desc") {
+        const aRefs = computeClientReferralStats(
+          a,
+          clients,
+          referrals,
+        ).totalReferred;
+        const bRefs = computeClientReferralStats(
+          b,
+          clients,
+          referrals,
+        ).totalReferred;
         return bRefs - aRefs;
       }
 
       // Default: recent by joinedDate / ID
-      const aDate = new Date(a.joinedDate || '2026-01-01').getTime();
-      const bDate = new Date(b.joinedDate || '2026-01-01').getTime();
+      const aDate = new Date(a.joinedDate || "2026-01-01").getTime();
+      const bDate = new Date(b.joinedDate || "2026-01-01").getTime();
       if (bDate !== aDate) return bDate - aDate;
       return b.id.localeCompare(a.id);
     });
   }, [clients, referrals, searchQuery, filterTab, sortBy, tierFilter]);
 
-  const hasActiveFilters = searchQuery || filterTab !== 'all' || sortBy !== 'recent' || tierFilter !== 'all';
+  const hasActiveFilters =
+    searchQuery ||
+    filterTab !== "all" ||
+    sortBy !== "recent" ||
+    tierFilter !== "all";
 
   const resetFilters = () => {
-    setSearchQuery('');
-    setFilterTab('all');
-    setSortBy('recent');
-    setTierFilter('all');
+    setSearchQuery("");
+    setFilterTab("all");
+    setSortBy("recent");
+    setTierFilter("all");
   };
 
   // If a client is selected, render their individual page view
@@ -256,7 +304,7 @@ export function ClientsView({
             <span>{actionToast}</span>
           </div>
           <button
-            onClick={() => setActionToast('')}
+            onClick={() => setActionToast("")}
             className="text-emerald-400 hover:text-white"
           >
             ✕
@@ -271,8 +319,12 @@ export function ClientsView({
             <span>Total Clients</span>
             <Users className="w-4 h-4 text-[#D4AF37]" />
           </div>
-          <div className="text-xl font-black text-white mt-1.5">{stats.totalClients}</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Enrolled Profiles</div>
+          <div className="text-xl font-black text-white mt-1.5">
+            {stats.totalClients}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-0.5">
+            Enrolled Profiles
+          </div>
         </div>
 
         <div className="p-4 rounded-2xl bg-[#0D131F] border border-[#1E293B] shadow-lg">
@@ -280,8 +332,12 @@ export function ClientsView({
             <span>Total Active AUM</span>
             <TrendingUp className="w-4 h-4 text-emerald-400" />
           </div>
-          <div className="text-xl font-black text-emerald-400 mt-1.5">{formatINR(stats.totalAum)}</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">{stats.activePlansCount} Active Investors</div>
+          <div className="text-xl font-black text-emerald-400 mt-1.5">
+            {formatINR(stats.totalAum)}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-0.5">
+            {stats.activePlansCount} Active Investors
+          </div>
         </div>
 
         <div className="p-4 rounded-2xl bg-[#0D131F] border border-[#1E293B] shadow-lg">
@@ -289,8 +345,12 @@ export function ClientsView({
             <span>Monthly Payout Liability</span>
             <DollarSign className="w-4 h-4 text-[#D4AF37]" />
           </div>
-          <div className="text-xl font-black text-white mt-1.5">{formatINR(stats.totalMonthlyLiability)}/mo</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">15% Contractual Yield</div>
+          <div className="text-xl font-black text-white mt-1.5">
+            {formatINR(stats.totalMonthlyLiability)}/mo
+          </div>
+          <div className="text-[10px] text-slate-400 mt-0.5">
+            15% Contractual Yield
+          </div>
         </div>
 
         <div className="p-4 rounded-2xl bg-[#0D131F] border border-[#1E293B] shadow-lg">
@@ -298,8 +358,12 @@ export function ClientsView({
             <span>Referral Partners</span>
             <Award className="w-4 h-4 text-purple-400" />
           </div>
-          <div className="text-xl font-black text-purple-400 mt-1.5">{stats.referralPartnersCount}</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Active Downline Partners</div>
+          <div className="text-xl font-black text-purple-400 mt-1.5">
+            {stats.referralPartnersCount}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-0.5">
+            Active Downline Partners
+          </div>
         </div>
 
         <div className="p-4 rounded-2xl bg-[#0D131F] border border-[#1E293B] shadow-lg col-span-2 md:col-span-4 lg:col-span-1">
@@ -307,8 +371,12 @@ export function ClientsView({
             <span>Pending Action</span>
             <Clock className="w-4 h-4 text-amber-400" />
           </div>
-          <div className="text-xl font-black text-amber-400 mt-1.5">{stats.pendingPlansCount}</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Awaiting Plan Assignment</div>
+          <div className="text-xl font-black text-amber-400 mt-1.5">
+            {stats.pendingPlansCount}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-0.5">
+            Awaiting Plan Assignment
+          </div>
         </div>
       </div>
 
@@ -327,7 +395,7 @@ export function ClientsView({
             />
             {searchQuery && (
               <button
-                onClick={() => setSearchQuery('')}
+                onClick={() => setSearchQuery("")}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xs font-bold"
               >
                 ✕
@@ -339,19 +407,38 @@ export function ClientsView({
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#080C14] border border-[#1E293B] text-xs">
               <ArrowUpDown className="w-3.5 h-3.5 text-[#D4AF37]" />
-              <span className="text-slate-400 text-[11px] font-bold">Sort:</span>
+              <span className="text-slate-400 text-[11px] font-bold">
+                Sort:
+              </span>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
                 className="bg-transparent text-white font-semibold text-xs focus:outline-none cursor-pointer"
               >
-                <option value="recent" className="bg-[#0D131F] text-white">Most Recent (Joined Date)</option>
-                <option value="aum_desc" className="bg-[#0D131F] text-white">Highest Capital / AUM</option>
-                <option value="aum_asc" className="bg-[#0D131F] text-white">Lowest Capital / AUM</option>
-                <option value="name_asc" className="bg-[#0D131F] text-white">Investor Name (A → Z)</option>
-                <option value="name_desc" className="bg-[#0D131F] text-white">Investor Name (Z → A)</option>
-                <option value="yield_desc" className="bg-[#0D131F] text-white">Highest Monthly Yield</option>
-                <option value="referrals_desc" className="bg-[#0D131F] text-white">Most Referrals</option>
+                <option value="recent" className="bg-[#0D131F] text-white">
+                  Most Recent (Joined Date)
+                </option>
+                <option value="aum_desc" className="bg-[#0D131F] text-white">
+                  Highest Capital / AUM
+                </option>
+                <option value="aum_asc" className="bg-[#0D131F] text-white">
+                  Lowest Capital / AUM
+                </option>
+                <option value="name_asc" className="bg-[#0D131F] text-white">
+                  Investor Name (A → Z)
+                </option>
+                <option value="name_desc" className="bg-[#0D131F] text-white">
+                  Investor Name (Z → A)
+                </option>
+                <option value="yield_desc" className="bg-[#0D131F] text-white">
+                  Highest Monthly Yield
+                </option>
+                <option
+                  value="referrals_desc"
+                  className="bg-[#0D131F] text-white"
+                >
+                  Most Referrals
+                </option>
               </select>
             </div>
 
@@ -363,11 +450,24 @@ export function ClientsView({
                 onChange={(e) => setTierFilter(e.target.value as any)}
                 className="bg-transparent text-white font-semibold text-xs focus:outline-none cursor-pointer"
               >
-                <option value="all" className="bg-[#0D131F] text-white">All Tiers</option>
-                <option value="standard" className="bg-[#0D131F] text-white">Standard</option>
-                <option value="premium" className="bg-[#0D131F] text-white">Premium</option>
-                <option value="high_net_worth" className="bg-[#0D131F] text-white">High Net Worth (HNW)</option>
-                <option value="ultra_hnw" className="bg-[#0D131F] text-white">Ultra HNW</option>
+                <option value="all" className="bg-[#0D131F] text-white">
+                  All Tiers
+                </option>
+                <option value="standard" className="bg-[#0D131F] text-white">
+                  Standard
+                </option>
+                <option value="premium" className="bg-[#0D131F] text-white">
+                  Premium
+                </option>
+                <option
+                  value="high_net_worth"
+                  className="bg-[#0D131F] text-white"
+                >
+                  High Net Worth (HNW)
+                </option>
+                <option value="ultra_hnw" className="bg-[#0D131F] text-white">
+                  Ultra HNW
+                </option>
               </select>
             </div>
 
@@ -387,66 +487,66 @@ export function ClientsView({
         {/* Filter Tabs */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <button
-            onClick={() => setFilterTab('all')}
+            onClick={() => setFilterTab("all")}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-              filterTab === 'all'
-                ? 'bg-[#D4AF37] text-black shadow-md shadow-[#D4AF37]/20 font-black'
-                : 'bg-[#080C14] text-slate-400 hover:text-white border border-[#1E293B]'
+              filterTab === "all"
+                ? "bg-[#D4AF37] text-black shadow-md shadow-[#D4AF37]/20 font-black"
+                : "bg-[#080C14] text-slate-400 hover:text-white border border-[#1E293B]"
             }`}
           >
             All Clients ({clients.length})
           </button>
 
           <button
-            onClick={() => setFilterTab('active_plan')}
+            onClick={() => setFilterTab("active_plan")}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-              filterTab === 'active_plan'
-                ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20 font-black'
-                : 'bg-[#080C14] text-slate-400 hover:text-white border border-[#1E293B]'
+              filterTab === "active_plan"
+                ? "bg-emerald-500 text-black shadow-md shadow-emerald-500/20 font-black"
+                : "bg-[#080C14] text-slate-400 hover:text-white border border-[#1E293B]"
             }`}
           >
             Active Wealth Plan ({stats.activePlansCount})
           </button>
 
           <button
-            onClick={() => setFilterTab('pending_plan')}
+            onClick={() => setFilterTab("pending_plan")}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-              filterTab === 'pending_plan'
-                ? 'bg-blue-500 text-white shadow-md shadow-blue-500/20 font-black'
-                : 'bg-[#080C14] text-slate-400 hover:text-white border border-[#1E293B]'
+              filterTab === "pending_plan"
+                ? "bg-blue-500 text-white shadow-md shadow-blue-500/20 font-black"
+                : "bg-[#080C14] text-slate-400 hover:text-white border border-[#1E293B]"
             }`}
           >
             Awaiting Plan Start ({stats.pendingPlansCount})
           </button>
 
           <button
-            onClick={() => setFilterTab('pending_verification')}
+            onClick={() => setFilterTab("pending_verification")}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-              filterTab === 'pending_verification'
-                ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20 font-black'
-                : 'bg-[#080C14] text-slate-400 hover:text-white border border-[#1E293B]'
+              filterTab === "pending_verification"
+                ? "bg-amber-500 text-black shadow-md shadow-amber-500/20 font-black"
+                : "bg-[#080C14] text-slate-400 hover:text-white border border-[#1E293B]"
             }`}
           >
             No Phone Added ({stats.noPhoneCount})
           </button>
 
           <button
-            onClick={() => setFilterTab('phone_verified')}
+            onClick={() => setFilterTab("phone_verified")}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-              filterTab === 'phone_verified'
-                ? 'bg-cyan-500 text-black shadow-md shadow-cyan-500/20 font-black'
-                : 'bg-[#080C14] text-slate-400 hover:text-white border border-[#1E293B]'
+              filterTab === "phone_verified"
+                ? "bg-cyan-500 text-black shadow-md shadow-cyan-500/20 font-black"
+                : "bg-[#080C14] text-slate-400 hover:text-white border border-[#1E293B]"
             }`}
           >
             Phone Added ({stats.phoneVerifiedCount})
           </button>
 
           <button
-            onClick={() => setFilterTab('referral_partners')}
+            onClick={() => setFilterTab("referral_partners")}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-              filterTab === 'referral_partners'
-                ? 'bg-purple-500 text-white shadow-md shadow-purple-500/20 font-black'
-                : 'bg-[#080C14] text-slate-400 hover:text-white border border-[#1E293B]'
+              filterTab === "referral_partners"
+                ? "bg-purple-500 text-white shadow-md shadow-purple-500/20 font-black"
+                : "bg-[#080C14] text-slate-400 hover:text-white border border-[#1E293B]"
             }`}
           >
             Referral Partners ({stats.referralPartnersCount})
@@ -460,13 +560,12 @@ export function ClientsView({
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-[#D4AF37]" />
             <h3 className="font-bold text-white text-sm">
-              Client Management Roster ({processedClients.length} of {clients.length})
+              Client Management Roster ({processedClients.length} of{" "}
+              {clients.length})
             </h3>
           </div>
           {hasActiveFilters && (
-            <span className="text-xs text-slate-400">
-              Filtered results
-            </span>
+            <span className="text-xs text-slate-400">Filtered results</span>
           )}
         </div>
 
@@ -491,9 +590,12 @@ export function ClientsView({
                     <div className="w-12 h-12 rounded-2xl bg-[#141C2E] border border-[#1E293B] text-slate-500 flex items-center justify-center mx-auto">
                       <Search className="w-6 h-6" />
                     </div>
-                    <div className="text-sm font-bold text-white">No Clients Found</div>
+                    <div className="text-sm font-bold text-white">
+                      No Clients Found
+                    </div>
                     <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                      No registered clients match the current search query or active filter criteria.
+                      No registered clients match the current search query or
+                      active filter criteria.
                     </p>
                     <button
                       onClick={resetFilters}
@@ -510,30 +612,50 @@ export function ClientsView({
                       p.id === client.assignedPlanId ||
                       (p as any).planId === client.assignedPlanId ||
                       (client.assignedPlanName &&
-                        p.planName.toLowerCase() === client.assignedPlanName.toLowerCase())
+                        p.planName.toLowerCase() ===
+                          client.assignedPlanName.toLowerCase()),
                   );
                   const planDuration = assignedPlan?.durationMonths ?? 14;
                   const planMonthlyPct = assignedPlan?.monthlyReturnPct ?? 15.0;
 
-                  const clientActivePlans = Array.isArray(client.activePlans) && client.activePlans.length > 0
-                    ? client.activePlans.filter((p) => p.status === 'active')
-                    : [];
+                  const clientActivePlans =
+                    Array.isArray(client.activePlans) &&
+                    client.activePlans.length > 0
+                      ? client.activePlans.filter((p) => p.status === "active")
+                      : [];
 
-                  const totalPlanCapital = clientActivePlans.length > 0
-                    ? clientActivePlans.reduce((sum, p) => sum + (Number(p.capitalAmount) || 0), 0)
-                    : (client.assignedPlanAmount || 0);
+                  const totalPlanCapital =
+                    clientActivePlans.length > 0
+                      ? clientActivePlans.reduce(
+                          (sum, p) => sum + (Number(p.capitalAmount) || 0),
+                          0,
+                        )
+                      : client.assignedPlanAmount || 0;
 
-                  const monthlyPayout = clientActivePlans.length > 0
-                    ? clientActivePlans.reduce((sum, p) => sum + ((Number(p.capitalAmount) || 0) * (p.monthlyReturnPct ?? 15.0)) / 100, 0)
-                    : totalPlanCapital
-                    ? (totalPlanCapital * planMonthlyPct) / 100
-                    : 0;
+                  const monthlyPayout =
+                    clientActivePlans.length > 0
+                      ? clientActivePlans.reduce(
+                          (sum, p) =>
+                            sum +
+                            ((Number(p.capitalAmount) || 0) *
+                              (p.monthlyReturnPct ?? 15.0)) /
+                              100,
+                          0,
+                        )
+                      : totalPlanCapital
+                        ? (totalPlanCapital * planMonthlyPct) / 100
+                        : 0;
 
                   // Live referral calculations
-                  const refStats = computeClientReferralStats(client, clients, referrals);
+                  const refStats = computeClientReferralStats(
+                    client,
+                    clients,
+                    referrals,
+                  );
                   const levelRule =
-                    REFERRAL_LEVEL_RULES.find((r) => r.level === refStats.level) ||
-                    REFERRAL_LEVEL_RULES[0];
+                    REFERRAL_LEVEL_RULES.find(
+                      (r) => r.level === refStats.level,
+                    ) || REFERRAL_LEVEL_RULES[0];
 
                   return (
                     <tr
@@ -565,7 +687,9 @@ export function ClientsView({
                             </div>
                             <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
                               <Calendar className="w-3 h-3 text-slate-500 shrink-0" />
-                              <span>Joined {client.joinedDate || 'Recently'}</span>
+                              <span>
+                                Joined {client.joinedDate || "Recently"}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -594,7 +718,8 @@ export function ClientsView({
 
                       {/* Assigned Plan & AUM */}
                       <td className="py-4 px-5">
-                        {client.assignedPlanStatus === 'active' && totalPlanCapital > 0 ? (
+                        {client.assignedPlanStatus === "active" &&
+                        totalPlanCapital > 0 ? (
                           <div>
                             <div className="font-extrabold text-white text-xs flex items-center gap-1.5 flex-wrap">
                               <span>{formatINR(totalPlanCapital)}</span>
@@ -612,11 +737,16 @@ export function ClientsView({
                               +{formatINR(monthlyPayout)} / mo (15.0%)
                             </div>
                             <div className="text-[10px] text-slate-400 mt-0.5">
-                              Month {client.currentMonthIndex || 1} of {planDuration} •{' '}
+                              Month {client.currentMonthIndex || 1} of{" "}
+                              {planDuration} •{" "}
                               {client.currentMonthWithdrawn ? (
-                                <span className="text-emerald-400 font-semibold">✓ Settled</span>
+                                <span className="text-emerald-400 font-semibold">
+                                  ✓ Settled
+                                </span>
                               ) : (
-                                <span className="text-amber-400 font-semibold">● Ready</span>
+                                <span className="text-amber-400 font-semibold">
+                                  ● Ready
+                                </span>
                               )}
                             </div>
                           </div>
@@ -656,7 +786,10 @@ export function ClientsView({
                           </div>
 
                           <div className="text-[11px] text-slate-300">
-                            <strong className="text-white">{refStats.totalReferred}</strong> Referred{' '}
+                            <strong className="text-white">
+                              {refStats.totalReferred}
+                            </strong>{" "}
+                            Referred{" "}
                             <span className="text-slate-500">
                               ({refStats.activePlanReferrals} Active)
                             </span>
@@ -668,8 +801,10 @@ export function ClientsView({
                       <td className="py-4 px-5">
                         <div className="flex items-center gap-1.5 text-slate-300 font-medium font-mono text-[11px] max-w-[180px] truncate">
                           <Building className="w-3 h-3 text-slate-500 shrink-0" />
-                          <span title={client.bankAccount || 'USDT TRC20 Wallet'}>
-                            {client.bankAccount || 'USDT TRC20 Wallet'}
+                          <span
+                            title={client.bankAccount || "USDT TRC20 Wallet"}
+                          >
+                            {client.bankAccount || "USDT TRC20 Wallet"}
                           </span>
                         </div>
                         <div className="text-[10px] text-emerald-400 mt-0.5">
@@ -692,7 +827,7 @@ export function ClientsView({
                       {/* Contextual Quick Actions */}
                       <td className="py-4 px-5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {client.assignedPlanStatus === 'active' ? (
+                          {client.assignedPlanStatus === "active" ? (
                             <>
                               <button
                                 onClick={() => onOpenAssignModal(client.id)}
