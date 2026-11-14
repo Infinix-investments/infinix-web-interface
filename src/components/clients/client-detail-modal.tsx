@@ -25,6 +25,7 @@ import {
   Percent,
   ChevronRight,
   ExternalLink,
+  Trash2,
 } from 'lucide-react';
 import { useAdmin } from '@/context/admin-context';
 import { ClientProfile } from '@/types/admin';
@@ -44,6 +45,39 @@ interface ClientDetailModalProps {
 const isPhoneAdded = (phone?: string) =>
   Boolean(phone && phone.trim().length > 0 && phone.trim().toLowerCase() !== 'n/a' && phone.trim() !== '—');
 
+function calculateCompletedDays(startDateStr?: string | Date): number {
+  if (!startDateStr) return 0;
+  let startYear: number, startMonth: number, startDay: number;
+  if (typeof startDateStr === 'string') {
+    const cleanStr = startDateStr.split('T')[0];
+    const parts = cleanStr.split(/[-/]/);
+    if (parts.length >= 3) {
+      startYear = parseInt(parts[0], 10);
+      startMonth = parseInt(parts[1], 10) - 1;
+      startDay = parseInt(parts[2], 10);
+    } else {
+      const d = new Date(startDateStr);
+      if (isNaN(d.getTime())) return 0;
+      startYear = d.getFullYear();
+      startMonth = d.getMonth();
+      startDay = d.getDate();
+    }
+  } else {
+    const d = new Date(startDateStr);
+    if (isNaN(d.getTime())) return 0;
+    startYear = d.getFullYear();
+    startMonth = d.getMonth();
+    startDay = d.getDate();
+  }
+
+  const now = new Date();
+  const startMidnight = new Date(startYear, startMonth, startDay, 0, 0, 0, 0);
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const diffMs = todayMidnight.getTime() - startMidnight.getTime();
+  if (diffMs <= 0) return 0;
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
 export function ClientDetailModal({
   client,
   isOpen,
@@ -56,6 +90,7 @@ export function ClientDetailModal({
     referrals,
     withdrawals,
     verifyClientPhone,
+    revokeClientPlanInstance,
     approveWithdrawal,
     rejectWithdrawal,
   } = useAdmin();
@@ -127,18 +162,29 @@ export function ClientDetailModal({
     }
   };
 
+  const handleRevokeSingleContract = (contractId: string, planName: string, capital: number) => {
+    if (!client) return;
+    if (
+      confirm(
+        `Are you sure you want to revoke contract "${planName}" (${formatINR(capital)})? All other active plans for ${client.firstName} ${client.lastName} will continue unaffected.`,
+      )
+    ) {
+      const res = revokeClientPlanInstance(client.id, contractId);
+      if (res.success) {
+        showToast(res.message);
+      }
+    }
+  };
+
   const displayPlans = useMemo(() => {
     if (!client) return [];
     if (client.activePlans && client.activePlans.length > 0) {
       const activeContracts = client.activePlans
         .filter((p: any) => (p.status || "active") === "active")
         .map((p: any, idx: number) => {
-          const start = p.startDate && !isNaN(new Date(p.startDate).getTime())
-            ? new Date(p.startDate)
-            : new Date();
           const duration = p.durationMonths || 14;
           const maxDays = duration * 30;
-          const days = Math.max(0, Math.floor((currentTime - start.getTime()) / (1000 * 60 * 60 * 24)));
+          const days = calculateCompletedDays(p.startDate);
           const effDays = Math.min(maxDays, days);
           const dailyRate = p.dailyReturnPct ?? 0.5;
           const monthlyRate = p.monthlyReturnPct ?? 15.0;
@@ -183,11 +229,8 @@ export function ClientDetailModal({
       const planGrossTotalReturnPct =
         assignedPlan?.grossTotalReturnPct ?? planMonthlyPct * planDuration;
 
-      const start = client.assignedPlanStartDate && !isNaN(new Date(client.assignedPlanStartDate).getTime())
-        ? new Date(client.assignedPlanStartDate)
-        : new Date();
       const maxDays = planDuration * 30;
-      const days = Math.max(0, Math.floor((Date.now() - start.getTime()) / (1000 * 60 * 60 * 24)));
+      const days = calculateCompletedDays(client.assignedPlanStartDate);
       const effDays = Math.min(maxDays, days);
       const cap = fallbackCap;
       const daily = (cap * planDailyRate) / 100 || 0;
@@ -220,7 +263,7 @@ export function ClientDetailModal({
     }
 
     return [];
-  }, [client, plans, currentTime]);
+  }, [client, plans]);
 
   const totalCapitalAllocated = displayPlans.length > 0
     ? displayPlans.reduce((sum: number, p: any) => sum + (Number(p.capitalAmount) || 0), 0)
@@ -646,13 +689,24 @@ export function ClientDetailModal({
                             </p>
                           </div>
 
-                          <div className="text-right shrink-0">
-                            <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-                              Invested Capital
-                            </span>
-                            <span className="text-lg font-black text-white">
-                              {formatINR(p.capitalAmount)}
-                            </span>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="text-right">
+                              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                                Invested Capital
+                              </span>
+                              <span className="text-lg font-black text-white">
+                                {formatINR(p.capitalAmount)}
+                              </span>
+                            </div>
+
+                            <button
+                              onClick={() => handleRevokeSingleContract(p.planInstanceId || p.id, p.planName, p.capitalAmount)}
+                              className="px-2.5 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-red-300 font-bold text-[11px] transition-all flex items-center gap-1 shadow-sm"
+                              title="Revoke only this plan contract without affecting other plans"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>Revoke</span>
+                            </button>
                           </div>
                         </div>
 

@@ -54,6 +54,11 @@ interface AdminContextType {
     paymentReference?: string,
   ) => { success: boolean; message: string };
   revokeClientPlan: (clientId: string) => { success: boolean; message: string };
+  revokeClientPlanInstance: (
+    clientId: string,
+    planInstanceId: string,
+    reason?: string,
+  ) => { success: boolean; message: string };
   createPlan: (data: Partial<InvestmentPlanConfig>) => Promise<{
     success: boolean;
     message: string;
@@ -605,6 +610,106 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     };
   };
 
+  const revokeClientPlanInstance = (
+    clientId: string,
+    planInstanceId: string,
+    reason?: string,
+  ) => {
+    const client = clients.find((c) => c.id === clientId || c.clientId === clientId);
+    if (!client) return { success: false, message: "Client not found." };
+
+    const resolvedClientId = client.clientId || client.id;
+    const existingPlans = Array.isArray(client.activePlans) ? client.activePlans : [];
+    const targetPlan = existingPlans.find((p) => p.planInstanceId === planInstanceId);
+    const planLabel = targetPlan?.planName || "Investment Contract";
+
+    const remainingPlans = existingPlans.filter((p) => p.planInstanceId !== planInstanceId);
+    const remainingActive = remainingPlans.filter((p) => (p.status || "active") === "active");
+    const newTotalCap = remainingActive.reduce((sum, p) => sum + (Number(p.capitalAmount) || 0), 0);
+    const earliestDate = remainingActive.map((p) => p.startDate).filter(Boolean).sort()[0];
+
+    setClients((prev) =>
+      prev.map((c) => {
+        if (c.id === clientId || c.clientId === clientId || c.id === resolvedClientId || c.clientId === resolvedClientId) {
+          if (remainingActive.length === 0) {
+            return {
+              ...c,
+              assignedPlanId: null,
+              assignedPlanName: undefined,
+              assignedPlanAmount: 0,
+              assignedPlanStartDate: undefined,
+              assignedPlanStatus: "pending_assignment" as const,
+              activePlans: [],
+              totalAum: 0,
+            };
+          }
+          return {
+            ...c,
+            assignedPlanId: remainingActive[0].planId,
+            assignedPlanName: remainingActive[0].planName,
+            assignedPlanAmount: newTotalCap,
+            assignedPlanStartDate: earliestDate,
+            assignedPlanStatus: "active" as const,
+            activePlans: remainingPlans,
+            totalAum: newTotalCap,
+          };
+        }
+        return c;
+      }),
+    );
+
+    // Update referrals where this client is referee
+    setReferrals((prev) =>
+      prev.map((r) => {
+        if (r.refereeId === clientId || r.refereeId === resolvedClientId) {
+          const comm = (newTotalCap * (r.commissionRatePct || 5)) / 100;
+          return {
+            ...r,
+            status: newTotalCap > 0 ? "active" : "pending",
+            capitalAmount: newTotalCap,
+            monthlyCommissionAmount: comm,
+          };
+        }
+        return r;
+      }),
+    );
+
+    addAuditLog(
+      "Contract Plan Revoked",
+      "plan_assignment",
+      `Revoked individual contract "${planLabel}" (${targetPlan ? Number(targetPlan.capitalAmount).toLocaleString() : ""} USDT) for ${client.firstName} ${client.lastName}. Remaining active capital: ${newTotalCap.toLocaleString()} USDT.`,
+    );
+
+    api
+      .revokePlan(resolvedClientId, "Chief Wealth Admin (Altaf)", reason, planInstanceId)
+      .then((res) => {
+        if (res?.success && res?.data) {
+          const serverClient = res.data;
+          setClients((prev) =>
+            prev.map((c) =>
+              c.id === clientId || c.clientId === clientId || c.id === resolvedClientId || c.clientId === resolvedClientId
+                ? {
+                    ...c,
+                    ...serverClient,
+                    id: serverClient.clientId || c.id,
+                    clientId: serverClient.clientId || c.clientId,
+                    activePlans: Array.isArray(serverClient.activePlans) ? serverClient.activePlans : c.activePlans,
+                  }
+                : c
+            )
+          );
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to revoke plan instance on server:", err);
+      });
+
+    return {
+      success: true,
+      message: `Contract "${planLabel}" revoked successfully. Remaining AUM: ${newTotalCap.toLocaleString("en-US")} USDT.`,
+    };
+  };
+
   // 4. APPROVE MONTHLY WITHDRAWAL
   const approveWithdrawal = (withdrawalId: string, customUtr?: string) => {
     const wd = withdrawals.find((w) => w.id === withdrawalId);
@@ -919,6 +1024,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         updateClientProfile,
         assignPlanToClient,
         revokeClientPlan,
+        revokeClientPlanInstance,
         createPlan,
         updatePlan,
         deletePlan,

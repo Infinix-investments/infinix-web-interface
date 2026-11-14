@@ -31,7 +31,7 @@ import {
   TrendingUp,
   User,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 interface ClientDetailViewProps {
   clientId: string;
@@ -47,6 +47,39 @@ const isPhoneAdded = (phone?: string) =>
     phone.trim() !== "—",
   );
 
+function calculateCompletedDays(startDateStr?: string | Date): number {
+  if (!startDateStr) return 0;
+  let startYear: number, startMonth: number, startDay: number;
+  if (typeof startDateStr === 'string') {
+    const cleanStr = startDateStr.split('T')[0];
+    const parts = cleanStr.split(/[-/]/);
+    if (parts.length >= 3) {
+      startYear = parseInt(parts[0], 10);
+      startMonth = parseInt(parts[1], 10) - 1;
+      startDay = parseInt(parts[2], 10);
+    } else {
+      const d = new Date(startDateStr);
+      if (isNaN(d.getTime())) return 0;
+      startYear = d.getFullYear();
+      startMonth = d.getMonth();
+      startDay = d.getDate();
+    }
+  } else {
+    const d = new Date(startDateStr);
+    if (isNaN(d.getTime())) return 0;
+    startYear = d.getFullYear();
+    startMonth = d.getMonth();
+    startDay = d.getDate();
+  }
+
+  const now = new Date();
+  const startMidnight = new Date(startYear, startMonth, startDay, 0, 0, 0, 0);
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const diffMs = todayMidnight.getTime() - startMidnight.getTime();
+  if (diffMs <= 0) return 0;
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
 export function ClientDetailView({
   clientId,
   onBack,
@@ -61,6 +94,7 @@ export function ClientDetailView({
     verifyClientPhone,
     updateClientProfile,
     revokeClientPlan,
+    revokeClientPlanInstance,
     approveWithdrawal,
     rejectWithdrawal,
   } = useAdmin();
@@ -179,16 +213,19 @@ export function ClientDetailView({
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  const handleApprovePayout = (wdId: string) => {
-    const utr =
-      customUtr.trim() || `CMS-RTGS-${Date.now().toString().slice(-8)}`;
-    const res = approveWithdrawal(wdId, utr);
-    setApprovingWdId(null);
-    setCustomUtr("");
-    if (res.success) {
-      showToast(res.message);
-    }
-  };
+  const handleApprovePayout = useCallback(
+    (wdId: string) => {
+      const utr =
+        customUtr.trim() || `CMS-RTGS-${Date.now().toString().slice(-8)}`;
+      const res = approveWithdrawal(wdId, utr);
+      setApprovingWdId(null);
+      setCustomUtr("");
+      if (res.success) {
+        showToast(res.message);
+      }
+    },
+    [customUtr, approveWithdrawal],
+  );
 
   const handleRejectPayout = (wdId: string) => {
     const res = rejectWithdrawal(
@@ -206,10 +243,24 @@ export function ClientDetailView({
     if (!client) return;
     if (
       confirm(
-        `Are you sure you want to revoke the active investment plan for ${client.firstName} ${client.lastName}?`,
+        `Are you sure you want to revoke all active investment plans for ${client.firstName} ${client.lastName}?`,
       )
     ) {
       const res = revokeClientPlan(client.id);
+      if (res.success) {
+        showToast(res.message);
+      }
+    }
+  };
+
+  const handleRevokeSingleContract = (contractId: string, planName: string, capital: number) => {
+    if (!client) return;
+    if (
+      confirm(
+        `Are you sure you want to revoke contract "${planName}" (${formatINR(capital)})? All other active plans for ${client.firstName} ${client.lastName} will continue unaffected.`,
+      )
+    ) {
+      const res = revokeClientPlanInstance(client.id, contractId);
       if (res.success) {
         showToast(res.message);
       }
@@ -264,15 +315,9 @@ export function ClientDetailView({
       const activeContracts = client.activePlans
         .filter((p: any) => (p.status || "active") === "active")
         .map((p: any, idx: number) => {
-          const start = p.startDate && !isNaN(new Date(p.startDate).getTime())
-            ? new Date(p.startDate)
-            : new Date();
           const duration = p.durationMonths || 14;
           const maxDays = duration * 30;
-          const days = Math.max(
-            0,
-            Math.floor((Date.now() - start.getTime()) / (1000 * 60 * 60 * 24)),
-          );
+          const days = calculateCompletedDays(p.startDate);
           const effDays = Math.min(maxDays, days);
           const dailyRate = p.dailyReturnPct ?? 0.5;
           const monthlyRate = p.monthlyReturnPct ?? 15.0;
@@ -317,14 +362,8 @@ export function ClientDetailView({
       );
       const cap = fallbackCap;
       const duration = assignedPlan?.durationMonths || 14;
-      const start = client.assignedPlanStartDate && !isNaN(new Date(client.assignedPlanStartDate).getTime())
-        ? new Date(client.assignedPlanStartDate)
-        : new Date();
       const maxDays = duration * 30;
-      const days = Math.max(
-        0,
-        Math.floor((Date.now() - start.getTime()) / (1000 * 60 * 60 * 24)),
-      );
+      const days = calculateCompletedDays(client.assignedPlanStartDate);
       const effDays = Math.min(maxDays, days);
       const dailyRate = assignedPlan?.dailyReturnPct || 0.5;
       const monthlyRate = assignedPlan?.monthlyReturnPct || 15.0;
@@ -826,13 +865,30 @@ export function ClientDetailView({
                       </div>
                     </div>
 
-                    <div className="text-right">
-                      <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">
-                        Invested Capital
+                    <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap justify-end">
+                      <div className="text-right">
+                        <div className="text-xs text-slate-400 uppercase tracking-wider font-bold">
+                          Invested Capital
+                        </div>
+                        <div className="text-2xl font-black text-white">
+                          {formatINR(contract.capitalAmount)}
+                        </div>
                       </div>
-                      <div className="text-2xl font-black text-white">
-                        {formatINR(contract.capitalAmount)}
-                      </div>
+
+                      <button
+                        onClick={() =>
+                          handleRevokeSingleContract(
+                            contract.id,
+                            contract.planName,
+                            contract.capitalAmount,
+                          )
+                        }
+                        className="px-3 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-red-300 font-bold text-xs transition-all flex items-center gap-1.5 shadow-sm"
+                        title="Revoke only this plan contract without affecting other plans"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Revoke Plan</span>
+                      </button>
                     </div>
                   </div>
 

@@ -96,10 +96,10 @@ class ApiClient {
     });
   }
 
-  async revokePlan(clientId: string, adminName?: string, reason?: string) {
+  async revokePlan(clientId: string, adminName?: string, reason?: string, planInstanceId?: string) {
     return this.request<any>(`/clients/${clientId}/revoke-plan`, {
       method: 'POST',
-      body: JSON.stringify({ adminName, reason }),
+      body: JSON.stringify({ adminName, reason, planInstanceId }),
     });
   }
 
