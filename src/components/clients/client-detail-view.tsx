@@ -103,11 +103,11 @@ export function ClientDetailView({
   const referralStats = useMemo(() => {
     if (!client) {
       return {
-        referralCode: 'INF-0000',
+        referralCode: "INF-0000",
         totalReferred: 0,
         activePlanReferrals: 0,
         level: 0,
-        levelName: 'Level 0',
+        levelName: "Level 0",
         roiPct: 0,
         neededForNext: 2,
         plansRemainingForNext: 2,
@@ -126,7 +126,7 @@ export function ClientDetailView({
       (c) =>
         c.id !== client.id &&
         ((client.referralCode && c.referredByCode === client.referralCode) ||
-          referrals.some((r) => r.referrerId === client.id && r.refereeId === c.id))
+          referrals.some((r) => r.referrerId === client.id && r.refereeId === c.id)),
     );
   }, [clients, client, referrals]);
 
@@ -137,7 +137,8 @@ export function ClientDetailView({
       (w) =>
         w.clientId === client.id ||
         (client.clientId && w.clientId === client.clientId) ||
-        w.clientName.toLowerCase() === `${client.firstName} ${client.lastName}`.toLowerCase()
+        w.clientName.toLowerCase() ===
+          `${client.firstName} ${client.lastName}`.toLowerCase(),
     );
   }, [client, withdrawals]);
 
@@ -394,9 +395,12 @@ export function ClientDetailView({
     return auditLogs.filter(
       (log) =>
         log.details.toLowerCase().includes(client.id.toLowerCase()) ||
-        (client.clientId && log.details.toLowerCase().includes(client.clientId.toLowerCase())) ||
+        (client.clientId &&
+          log.details.toLowerCase().includes(client.clientId.toLowerCase())) ||
         log.details.toLowerCase().includes(client.email.toLowerCase()) ||
-        log.details.toLowerCase().includes(`${client.firstName} ${client.lastName}`.toLowerCase())
+        log.details
+          .toLowerCase()
+          .includes(`${client.firstName} ${client.lastName}`.toLowerCase()),
     );
   }, [client, auditLogs]);
 
@@ -404,9 +408,12 @@ export function ClientDetailView({
     return (
       <div className="p-8 rounded-2xl bg-[#0D131F] border border-[#1E293B] text-center space-y-4">
         <AlertCircle className="w-12 h-12 text-amber-400 mx-auto" />
-        <h2 className="text-xl font-bold text-white">Client Profile Not Found</h2>
+        <h2 className="text-xl font-bold text-white">
+          Client Profile Not Found
+        </h2>
         <p className="text-sm text-slate-400">
-          The requested client record (#{clientId}) could not be located in the directory.
+          The requested client record (#{clientId}) could not be located in the
+          directory.
         </p>
         <button
           onClick={onBack}
@@ -494,8 +501,8 @@ export function ClientDetailView({
           <div className="flex items-start gap-4">
             <div className="relative">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#1E293B] to-[#0D131F] border-2 border-[#D4AF37] flex items-center justify-center text-white font-extrabold text-xl shadow-xl shadow-[#D4AF37]/10">
-                {client.firstName[0]}
-                {client.lastName[0]}
+                {(client.firstName?.[0] || 'I').toUpperCase()}
+                {(client.lastName?.[0] || '').toUpperCase()}
               </div>
               <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 border-2 border-[#080C14] flex items-center justify-center text-black text-[10px] font-bold">
                 ✓

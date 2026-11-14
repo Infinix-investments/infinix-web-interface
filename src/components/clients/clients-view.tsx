@@ -666,8 +666,8 @@ export function ClientsView({
                       <td className="py-4 px-5">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#1E293B] to-[#080C14] border border-[#1E293B] flex items-center justify-center text-white font-black text-xs shrink-0 group-hover:border-[#D4AF37]/50 transition-all shadow-sm">
-                            {client.firstName[0]}
-                            {client.lastName[0]}
+                            {(client.firstName?.[0] || 'I').toUpperCase()}
+                            {(client.lastName?.[0] || '').toUpperCase()}
                           </div>
                           <div>
                             <div className="font-bold text-white text-sm flex items-center gap-1.5 flex-wrap">

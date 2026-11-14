@@ -265,8 +265,8 @@ export function ClientDetailModal({
           <div className="flex items-center gap-4 min-w-0">
             {/* Avatar */}
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#D4AF37]/20 to-[#141C2E] border-2 border-[#D4AF37]/60 flex items-center justify-center text-[#D4AF37] font-black text-xl shrink-0 shadow-lg shadow-[#D4AF37]/10">
-              {client.firstName[0]}
-              {client.lastName[0]}
+              {(client.firstName?.[0] || 'I').toUpperCase()}
+              {(client.lastName?.[0] || '').toUpperCase()}
             </div>
 
             <div className="min-w-0">
