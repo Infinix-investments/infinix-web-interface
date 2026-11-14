@@ -96,35 +96,47 @@ export function ClientDetailView({
     setTimeout(() => setToast(''), 4500);
   };
 
-  if (!client) {
-    return (
-      <div className="p-8 rounded-2xl bg-[#0D131F] border border-[#1E293B] text-center space-y-4">
-        <AlertCircle className="w-12 h-12 text-amber-400 mx-auto" />
-        <h2 className="text-xl font-bold text-white">Client Profile Not Found</h2>
-        <p className="text-sm text-slate-400">
-          The requested client record (#{clientId}) could not be located in the directory.
-        </p>
-        <button
-          onClick={onBack}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#141C2E] hover:bg-[#1E293B] border border-[#1E293B] text-white text-xs font-bold transition-all"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to Client Management</span>
-        </button>
-      </div>
-    );
-  }
-
   // Compute live referral stats for this client
-  const referralStats = computeClientReferralStats(client, clients, referrals);
+  const referralStats = useMemo(() => {
+    if (!client) {
+      return {
+        referralCode: 'INF-0000',
+        totalReferred: 0,
+        activePlanReferrals: 0,
+        level: 0,
+        levelName: 'Level 0',
+        roiPct: 0,
+        neededForNext: 2,
+        plansRemainingForNext: 2,
+        monthlyCommissionYield: 0,
+        refereeList: [],
+        totalEarnedCommissions: 0,
+      };
+    }
+    return computeClientReferralStats(client, clients, referrals);
+  }, [client, clients, referrals]);
+
+  // Direct referee client profiles
+  const referredClients = useMemo(() => {
+    if (!client) return [];
+    return clients.filter(
+      (c) =>
+        c.id !== client.id &&
+        ((client.referralCode && c.referredByCode === client.referralCode) ||
+          referrals.some((r) => r.referrerId === client.id && r.refereeId === c.id))
+    );
+  }, [clients, client, referrals]);
 
   // Get all withdrawals for this client
-  const clientWithdrawals = withdrawals.filter(
-    (w) =>
-      w.clientId === client.id ||
-      (client.clientId && w.clientId === client.clientId) ||
-      w.clientName.toLowerCase() === `${client.firstName} ${client.lastName}`.toLowerCase()
-  );
+  const clientWithdrawals = useMemo(() => {
+    if (!client) return [];
+    return withdrawals.filter(
+      (w) =>
+        w.clientId === client.id ||
+        (client.clientId && w.clientId === client.clientId) ||
+        w.clientName.toLowerCase() === `${client.firstName} ${client.lastName}`.toLowerCase()
+    );
+  }, [client, withdrawals]);
 
   const pendingWithdrawals = clientWithdrawals.filter((w) => w.status === 'pending_approval');
   const settledWithdrawals = clientWithdrawals.filter((w) => w.status === 'disbursed');
@@ -179,6 +191,7 @@ export function ClientDetailView({
   };
 
   const handleRevokePlan = () => {
+    if (!client) return;
     if (confirm(`Are you sure you want to revoke the active investment plan for ${client.firstName} ${client.lastName}?`)) {
       const res = revokeClientPlan(client.id);
       if (res.success) {
@@ -188,6 +201,7 @@ export function ClientDetailView({
   };
 
   const handleVerifyPhone = () => {
+    if (!client) return;
     const res = verifyClientPhone(client.id);
     if (res.success) {
       showToast(res.message);
@@ -197,6 +211,7 @@ export function ClientDetailView({
   };
 
   const handleSaveNotes = async () => {
+    if (!client) return;
     setIsSavingNotes(true);
     const res = await updateClientProfile(client.id, { notes: editedNotes });
     setIsSavingNotes(false);
@@ -209,6 +224,7 @@ export function ClientDetailView({
   };
 
   const handleSaveInfo = async () => {
+    if (!client) return;
     setIsSavingInfo(true);
     const updates: Partial<ClientProfile> = {};
     if (editPhone.trim()) updates.phone = editPhone.trim();
@@ -227,6 +243,7 @@ export function ClientDetailView({
 
   // Display active contracts & timeline metrics
   const displayPlans = useMemo(() => {
+    if (!client) return [];
     if (client.activePlans && client.activePlans.length > 0) {
       return client.activePlans.map((p: any, idx: number) => {
         const start = p.startDate ? new Date(p.startDate) : new Date();
@@ -316,13 +333,35 @@ export function ClientDetailView({
   const availableToWithdraw = Math.max(0, Math.round((totalAccruedProfit + totalReferralBonus - totalDisbursedAmount) * 100) / 100);
 
   // Client audit log history
-  const clientAuditLogs = auditLogs.filter(
-    (log) =>
-      log.details.toLowerCase().includes(client.id.toLowerCase()) ||
-      (client.clientId && log.details.toLowerCase().includes(client.clientId.toLowerCase())) ||
-      log.details.toLowerCase().includes(client.email.toLowerCase()) ||
-      log.details.toLowerCase().includes(`${client.firstName} ${client.lastName}`.toLowerCase())
-  );
+  const clientAuditLogs = useMemo(() => {
+    if (!client) return [];
+    return auditLogs.filter(
+      (log) =>
+        log.details.toLowerCase().includes(client.id.toLowerCase()) ||
+        (client.clientId && log.details.toLowerCase().includes(client.clientId.toLowerCase())) ||
+        log.details.toLowerCase().includes(client.email.toLowerCase()) ||
+        log.details.toLowerCase().includes(`${client.firstName} ${client.lastName}`.toLowerCase())
+    );
+  }, [client, auditLogs]);
+
+  if (!client) {
+    return (
+      <div className="p-8 rounded-2xl bg-[#0D131F] border border-[#1E293B] text-center space-y-4">
+        <AlertCircle className="w-12 h-12 text-amber-400 mx-auto" />
+        <h2 className="text-xl font-bold text-white">Client Profile Not Found</h2>
+        <p className="text-sm text-slate-400">
+          The requested client record (#{clientId}) could not be located in the directory.
+        </p>
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#141C2E] hover:bg-[#1E293B] border border-[#1E293B] text-white text-xs font-bold transition-all"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Client Management</span>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
@@ -766,7 +805,7 @@ export function ClientDetailView({
                 </p>
               </div>
               <span className="px-2.5 py-1 rounded-lg bg-[#141C2E] text-slate-300 font-bold text-xs border border-[#1E293B]">
-                {referralStats.referredClients.length} Members
+                {referredClients.length} Members
               </span>
             </div>
 
@@ -783,14 +822,14 @@ export function ClientDetailView({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#1E293B]">
-                  {referralStats.referredClients.length === 0 ? (
+                  {referredClients.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-12 text-center text-slate-500">
                         No downline investors registered under code {referralStats.referralCode} yet.
                       </td>
                     </tr>
                   ) : (
-                    referralStats.referredClients.map((ref) => {
+                    referredClients.map((ref: ClientProfile) => {
                       const isActive = ref.assignedPlanStatus === 'active' && Number(ref.assignedPlanAmount || 0) > 0;
                       const cap = Number(ref.assignedPlanAmount || 0);
                       const directBonus = Math.round(cap * 0.05 * 100) / 100;

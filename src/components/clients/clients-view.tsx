@@ -85,17 +85,6 @@ export function ClientsView({
     return formatUSDT(val);
   };
 
-  // If a client is selected, render their individual page view
-  if (selectedClientId) {
-    return (
-      <ClientDetailView
-        clientId={selectedClientId}
-        onBack={() => setSelectedClientId(null)}
-        onOpenAssignModal={onOpenAssignModal}
-      />
-    );
-  }
-
   // Calculate live summary stats across all clients
   const stats = useMemo(() => {
     let totalAum = 0;
@@ -245,6 +234,17 @@ export function ClientsView({
     setSortBy('recent');
     setTierFilter('all');
   };
+
+  // If a client is selected, render their individual page view
+  if (selectedClientId) {
+    return (
+      <ClientDetailView
+        clientId={selectedClientId}
+        onBack={() => setSelectedClientId(null)}
+        onOpenAssignModal={onOpenAssignModal}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
