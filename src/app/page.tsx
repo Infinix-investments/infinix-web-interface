@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AdminProvider, useAdmin } from '@/context/admin-context';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
@@ -14,15 +14,26 @@ import { AuditView } from '@/components/audit/audit-view';
 import { ReportsView } from '@/components/reports/reports-view';
 import { AssignPlanModal } from '@/components/modals/assign-plan-modal';
 import { NewClientModal } from '@/components/modals/new-client-modal';
+import { AdminLogin } from '@/components/auth/admin-login';
+import { AdminSettingsModal } from '@/components/modals/admin-settings-modal';
 
 function AdminDeskContent() {
   const { activeTab } = useAdmin();
+
+  // Authentication State
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const auth = localStorage.getItem('infinix_admin_auth');
+    setIsAuthenticated(auth === 'true');
+  }, []);
 
   // Modal States
   const [assignModalClientId, setAssignModalClientId] = useState<string | null>(null);
   const [assignModalPlanId, setAssignModalPlanId] = useState<string | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showNewClientModal, setShowNewClientModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   const handleOpenAssignModal = (clientId?: string, planId?: string) => {
     setAssignModalClientId(clientId || null);
@@ -30,10 +41,29 @@ function AdminDeskContent() {
     setShowAssignModal(true);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('infinix_admin_auth');
+    setIsAuthenticated(false);
+  };
+
+  // Wait for client-side storage hydration
+  if (isAuthenticated === null) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-[#080C14]">
+        <div className="w-8 h-8 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // If not authenticated, render institutional login screen
+  if (!isAuthenticated) {
+    return <AdminLogin onLoginSuccess={() => setIsAuthenticated(true)} />;
+  }
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#080C14] text-slate-100 font-sans">
       {/* Fixed Desktop Sidebar */}
-      <Sidebar />
+      <Sidebar onOpenSettings={() => setShowSettingsModal(true)} />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -80,6 +110,14 @@ function AdminDeskContent() {
 
       {showNewClientModal && (
         <NewClientModal onClose={() => setShowNewClientModal(false)} />
+      )}
+
+      {showSettingsModal && (
+        <AdminSettingsModal
+          isOpen={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+          onLogout={handleLogout}
+        />
       )}
     </div>
   );

@@ -17,10 +17,15 @@ import {
   Layers,
   FileSpreadsheet,
   Award,
+  Settings,
 } from 'lucide-react';
 import { useAdmin, AdminTab } from '@/context/admin-context';
 
-export function Sidebar() {
+interface SidebarProps {
+  onOpenSettings?: () => void;
+}
+
+export function Sidebar({ onOpenSettings }: SidebarProps) {
   const { activeTab, setActiveTab, stats } = useAdmin();
 
   // Collapsible state for Refer & Earn folder
@@ -334,15 +339,24 @@ export function Sidebar() {
         <div className="p-3 rounded-xl bg-[#0D131F] border border-[#1E293B] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37] font-bold text-xs">
-              AD
+              MA
             </div>
             <div>
-              <p className="text-xs font-bold text-white">Chief Wealth Admin</p>
+              <p className="text-xs font-bold text-white">Master Admin</p>
               <p className="text-[10px] text-emerald-400 font-medium flex items-center gap-1">
                 <ShieldCheck className="w-3 h-3" /> Master Authority
               </p>
             </div>
           </div>
+          {onOpenSettings && (
+            <button
+              onClick={onOpenSettings}
+              title="Master Admin Settings"
+              className="p-1.5 rounded-lg bg-[#141C2E] hover:bg-[#1E293B] text-slate-400 hover:text-[#D4AF37] border border-[#1E293B] hover:border-[#D4AF37]/40 transition-all"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         <div className="mt-3 flex items-center justify-between px-2 text-[10px] text-slate-500">
