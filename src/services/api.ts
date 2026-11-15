@@ -164,6 +164,15 @@ class ApiClient {
     return this.request<any[]>(`/audit-logs${q}`);
   }
 
+  // User Feedbacks
+  async getUserFeedbacks(search?: string, category?: string) {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (category && category !== 'all') params.append('category', category);
+    const q = params.toString() ? `?${params.toString()}` : '';
+    return this.request<any[]>(`/feedbacks${q}`);
+  }
+
   // Health
   async checkHealth() {
     return this.request('/health');

@@ -156,3 +156,14 @@ export interface ClientReferralSummary {
   refereeList: ReferredUserItem[];
   referredClients?: any[];
 }
+
+export interface UserFeedbackItem {
+  id: string;
+  feedbackId: string;
+  category: string;
+  rating: number;
+  message: string;
+  userEmail: string;
+  userName: string;
+  createdAt: string;
+}

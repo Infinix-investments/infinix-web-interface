@@ -12,6 +12,7 @@ import { ReferralsView } from '@/components/referrals/referrals-view';
 import { LevelsView } from '@/components/referrals/levels-view';
 import { AuditView } from '@/components/audit/audit-view';
 import { ReportsView } from '@/components/reports/reports-view';
+import { FeedbacksView } from '@/components/feedbacks/feedbacks-view';
 import { AssignPlanModal } from '@/components/modals/assign-plan-modal';
 import { NewClientModal } from '@/components/modals/new-client-modal';
 import { AdminLogin } from '@/components/auth/admin-login';
@@ -90,6 +91,7 @@ function AdminDeskContent() {
               <ReportsView onOpenAssignModal={handleOpenAssignModal} />
             )}
             {activeTab === 'audit' && <AuditView />}
+            {activeTab === 'feedbacks' && <FeedbacksView />}
           </div>
         </main>
       </div>

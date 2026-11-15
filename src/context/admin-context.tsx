@@ -8,6 +8,7 @@ import {
   InvestmentPlanConfig,
   ReferralLevelTier,
   ReferralRecord,
+  UserFeedbackItem,
   WithdrawalRecord,
 } from "@/types/admin";
 import React, {
@@ -26,7 +27,8 @@ export type AdminTab =
   | "referrals"
   | "levels"
   | "reports"
-  | "audit";
+  | "audit"
+  | "feedbacks";
 
 interface AdminContextType {
   activeTab: AdminTab;
@@ -39,6 +41,8 @@ interface AdminContextType {
   referrals: ReferralRecord[];
   referralTiers: ReferralLevelTier[];
   auditLogs: AuditLogItem[];
+  userFeedbacks: UserFeedbackItem[];
+  refreshFeedbacks: () => Promise<void>;
   verifyClientPhone: (clientId: string) => {
     success: boolean;
     message: string;
@@ -106,6 +110,7 @@ interface AdminContextType {
     totalReferralsCount: number;
     activeReferralsCount: number;
     monthlyReferralCommissionTotal: number;
+    userFeedbacksCount: number;
   };
 }
 
@@ -122,19 +127,30 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     INITIAL_REFERRAL_TIERS,
   );
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
+  const [userFeedbacks, setUserFeedbacks] = useState<UserFeedbackItem[]>([]);
+
+  const refreshFeedbacks = async () => {
+    try {
+      const res = await api.getUserFeedbacks();
+      if (res.success && Array.isArray(res.data)) {
+        setUserFeedbacks(res.data);
+      }
+    } catch {}
+  };
 
   // Synchronize state with unified Fastify + MongoDB backend server
   useEffect(() => {
     let isMounted = true;
     async function loadServerData() {
       try {
-        const [cRes, pRes, wRes, rRes, tRes, aRes] = await Promise.allSettled([
+        const [cRes, pRes, wRes, rRes, tRes, aRes, fRes] = await Promise.allSettled([
           api.getClients(),
           api.getPlans(),
           api.getWithdrawals(),
           api.getReferrals(),
           api.getReferralTiers(),
           api.getAuditLogs(),
+          api.getUserFeedbacks(),
         ]);
 
         if (
@@ -186,6 +202,14 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           Array.isArray(aRes.value.data)
         ) {
           setAuditLogs(aRes.value.data);
+        }
+        if (
+          isMounted &&
+          fRes.status === "fulfilled" &&
+          fRes.value.success &&
+          Array.isArray(fRes.value.data)
+        ) {
+          setUserFeedbacks(fRes.value.data);
         }
       } catch {
         // Fallback gracefully to empty state
@@ -1005,8 +1029,9 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       totalReferralsCount,
       activeReferralsCount,
       monthlyReferralCommissionTotal,
+      userFeedbacksCount: userFeedbacks.length,
     };
-  }, [clients, withdrawals, referrals]);
+  }, [clients, withdrawals, referrals, userFeedbacks]);
 
   return (
     <AdminContext.Provider
@@ -1021,6 +1046,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         referrals,
         referralTiers,
         auditLogs,
+        userFeedbacks,
+        refreshFeedbacks,
         verifyClientPhone,
         updateClientProfile,
         assignPlanToClient,

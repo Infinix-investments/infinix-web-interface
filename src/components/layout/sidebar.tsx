@@ -18,6 +18,7 @@ import {
   FileSpreadsheet,
   Award,
   Settings,
+  MessageSquareText,
 } from 'lucide-react';
 import { useAdmin, AdminTab } from '@/context/admin-context';
 
@@ -93,6 +94,14 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
       label: 'Audit Trail',
       sublabel: 'Institutional Logs',
       icon: History,
+    },
+    {
+      id: 'feedbacks',
+      label: 'User Feedbacks',
+      sublabel: 'Ratings & Insights',
+      icon: MessageSquareText,
+      badge: stats.userFeedbacksCount > 0 ? stats.userFeedbacksCount : undefined,
+      badgeColor: 'bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/40',
     },
   ];
 
