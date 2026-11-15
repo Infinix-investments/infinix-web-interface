@@ -568,20 +568,33 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    setPlans((prev) => prev.filter((p) => p.id !== id));
+    try {
+      const res = await api.deletePlan(id);
+      if (!res.success) {
+        return {
+          success: false,
+          message: res.error || "Failed to delete plan from database.",
+        };
+      }
 
-    addAuditLog(
-      "Plan Removed",
-      "plan_config",
-      `Deleted plan ${target.planName} (${id})`,
-    );
+      setPlans((prev) => prev.filter((p) => p.id !== id));
 
-    api.deletePlan(id).catch(() => {});
+      addAuditLog(
+        "Plan Removed",
+        "plan_config",
+        `Deleted plan ${target.planName} (${id})`,
+      );
 
-    return {
-      success: true,
-      message: `Plan "${target.planName}" has been removed.`,
-    };
+      return {
+        success: true,
+        message: `Plan "${target.planName}" has been removed.`,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err.message || "Failed to remove plan.",
+      };
+    }
   };
 
   // 3. REVOKE PLAN
