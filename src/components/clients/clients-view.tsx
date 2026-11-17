@@ -17,12 +17,14 @@ import {
   DollarSign,
   Eye,
   Filter,
+  Lock,
   Mail,
   Phone,
   RotateCcw,
   Search,
   Trash2,
   TrendingUp,
+  Unlock,
   Users,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -52,7 +54,10 @@ export function ClientsView({
     selectedClientId,
     setSelectedClientId,
     revokeClientPlan,
+    toggleClientLevelIncome,
   } = useAdmin();
+
+  const [togglingClientId, setTogglingClientId] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTab, setFilterTab] = useState<
@@ -62,6 +67,7 @@ export function ClientsView({
     | "pending_verification"
     | "phone_verified"
     | "referral_partners"
+    | "level_unlocked"
   >("all");
   const [sortBy, setSortBy] = useState<
     | "recent"
@@ -71,6 +77,7 @@ export function ClientsView({
     | "name_desc"
     | "yield_desc"
     | "referrals_desc"
+    | "level_unlocked"
   >("recent");
   const [tierFilter, setTierFilter] = useState<
     "all" | "standard" | "premium" | "high_net_worth" | "ultra_hnw"
@@ -80,6 +87,18 @@ export function ClientsView({
   const showToast = (msg: string) => {
     setActionToast(msg);
     setTimeout(() => setActionToast(""), 4500);
+  };
+
+  const handleToggleLevel = async (clientId: string, unlock: boolean) => {
+    setTogglingClientId(clientId);
+    try {
+      const res = await toggleClientLevelIncome(clientId, unlock);
+      showToast(res.message);
+    } catch (err: any) {
+      showToast(err?.message || "Failed to update Level Income status");
+    } finally {
+      setTogglingClientId(null);
+    }
   };
 
   const handleRevoke = (clientId: string) => {
@@ -107,6 +126,7 @@ export function ClientsView({
     let noPhoneCount = 0;
     let phoneVerifiedCount = 0;
     let referralPartnersCount = 0;
+    let levelIncomeUnlockedCount = 0;
     let totalMonthlyLiability = 0;
 
     clients.forEach((c) => {
@@ -137,6 +157,10 @@ export function ClientsView({
         phoneVerifiedCount += 1;
       }
 
+      if (c.isLevelIncomeUnlocked) {
+        levelIncomeUnlockedCount += 1;
+      }
+
       const refStats = computeClientReferralStats(c, clients, referrals);
       if (refStats.totalReferred > 0) {
         referralPartnersCount += 1;
@@ -151,6 +175,7 @@ export function ClientsView({
       noPhoneCount,
       phoneVerifiedCount,
       referralPartnersCount,
+      levelIncomeUnlockedCount,
       totalMonthlyLiability,
     };
   }, [clients, referrals]);
@@ -203,6 +228,7 @@ export function ClientsView({
       if (filterTab === "pending_verification") return !isPhoneAdded(c.phone);
       if (filterTab === "phone_verified") return isPhoneAdded(c.phone);
       if (filterTab === "referral_partners") return refStats.totalReferred > 0;
+      if (filterTab === "level_unlocked") return Boolean(c.isLevelIncomeUnlocked);
 
       return true;
     });
@@ -260,6 +286,12 @@ export function ClientsView({
           referrals,
         ).totalReferred;
         return bRefs - aRefs;
+      }
+
+      if (sortBy === "level_unlocked") {
+        const aVal = a.isLevelIncomeUnlocked ? 1 : 0;
+        const bVal = b.isLevelIncomeUnlocked ? 1 : 0;
+        if (bVal !== aVal) return bVal - aVal;
       }
 
       // Default: recent by joinedDate / ID
@@ -439,6 +471,12 @@ export function ClientsView({
                 >
                   Most Referrals
                 </option>
+                <option
+                  value="level_unlocked"
+                  className="bg-[#0D131F] text-white"
+                >
+                  Level Income (Unlocked First)
+                </option>
               </select>
             </div>
 
@@ -551,6 +589,18 @@ export function ClientsView({
           >
             Referral Partners ({stats.referralPartnersCount})
           </button>
+
+          <button
+            onClick={() => setFilterTab("level_unlocked")}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+              filterTab === "level_unlocked"
+                ? "bg-emerald-500 text-black shadow-md shadow-emerald-500/20 font-black"
+                : "bg-[#080C14] text-slate-400 hover:text-white border border-[#1E293B]"
+            }`}
+          >
+            <Unlock className="w-3 h-3" />
+            <span>Level Unlocked ({stats.levelIncomeUnlockedCount})</span>
+          </button>
         </div>
       </div>
 
@@ -577,6 +627,7 @@ export function ClientsView({
                 <th className="py-4 px-5">Phone Status</th>
                 <th className="py-4 px-5">Assigned Plan & AUM</th>
                 <th className="py-4 px-5">Referral Code & Level</th>
+                <th className="py-4 px-5 text-center">Level Income</th>
                 <th className="py-4 px-5">Settlement Account</th>
                 {/* DEDICATED VIEW CLIENT COLUMN AS REQUESTED */}
                 <th className="py-4 px-5 text-center">View Client</th>
@@ -586,7 +637,7 @@ export function ClientsView({
             <tbody className="divide-y divide-[#1E293B] text-xs">
               {processedClients.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-16 text-center space-y-3">
+                  <td colSpan={8} className="py-16 text-center space-y-3">
                     <div className="w-12 h-12 rounded-2xl bg-[#141C2E] border border-[#1E293B] text-slate-500 flex items-center justify-center mx-auto">
                       <Search className="w-6 h-6" />
                     </div>
@@ -794,6 +845,63 @@ export function ClientsView({
                               ({refStats.activePlanReferrals} Active)
                             </span>
                           </div>
+                        </div>
+                      </td>
+
+                      {/* 5-Tier Level Income Status & Action */}
+                      <td className="py-4 px-5 text-center">
+                        <div className="inline-flex flex-col items-center gap-1.5">
+                          {client.isLevelIncomeUnlocked ? (
+                            <>
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/15 border border-emerald-500/40 text-emerald-400">
+                                <Unlock className="w-3 h-3 text-emerald-400" />
+                                <span>UNLOCKED</span>
+                              </span>
+                              <button
+                                disabled={togglingClientId === client.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleLevel(client.id, false);
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-[#141C2E] hover:bg-rose-950/60 border border-[#1E293B] hover:border-rose-500/40 text-slate-400 hover:text-rose-300 font-bold text-[10px] transition-all disabled:opacity-50 flex items-center gap-1 shadow-sm"
+                                title="Click to lock Level Income for this client"
+                              >
+                                {togglingClientId === client.id ? (
+                                  <span>Locking...</span>
+                                ) : (
+                                  <>
+                                    <Lock className="w-3 h-3 text-rose-400" />
+                                    <span>Lock</span>
+                                  </>
+                                )}
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 border border-amber-500/30 text-amber-400">
+                                <Lock className="w-3 h-3 text-amber-400" />
+                                <span>LOCKED</span>
+                              </span>
+                              <button
+                                disabled={togglingClientId === client.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleLevel(client.id, true);
+                                }}
+                                className="px-3 py-1 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#F59E0B] text-black font-extrabold text-[10px] hover:brightness-110 active:scale-95 transition-all shadow-md shadow-[#D4AF37]/20 disabled:opacity-50 flex items-center gap-1"
+                                title="Click to unlock 5-tier Level Income for this client"
+                              >
+                                {togglingClientId === client.id ? (
+                                  <span>Unlocking...</span>
+                                ) : (
+                                  <>
+                                    <Unlock className="w-3 h-3" />
+                                    <span>⚡ Unlock</span>
+                                  </>
+                                )}
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
 
