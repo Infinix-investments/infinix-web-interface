@@ -26,8 +26,8 @@ export function Header({ onOpenNewClientModal }: HeaderProps) {
       subtitle: 'Real-time AUM, liabilities, and client status overview',
     },
     clients: {
-      title: 'Registered Clients & Referral Directory',
-      subtitle: 'Monitor user profiles, verify mobile phones, inspect referral tiers, and assign plans',
+      title: 'Client Management Desk',
+      subtitle: 'Search, filter, view individual client pages, inspect portfolios, and manage allocations',
     },
     plans: {
       title: 'Plan Configuration & Tranche Engine',

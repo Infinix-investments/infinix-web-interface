@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useAdmin } from '@/context/admin-context';
 import { InvestmentPlanConfig } from '@/types/admin';
+import { formatUSDT } from '@/utils/currency';
 
 interface PlansViewProps {
   onOpenAssignModal: (clientId?: string, planId?: string) => void;
@@ -130,7 +131,7 @@ export function PlansView({ onOpenAssignModal }: PlansViewProps) {
   const totalNetProfit = totalMaturityPayout - simAmount; // ₹1,10,000 pure return
 
   const formatINR = (val: number) => {
-    return Math.round(val).toLocaleString('en-US') + ' USDT';
+    return formatUSDT(val);
   };
 
   const activeEnrolledClients = clients.filter(

@@ -22,6 +22,7 @@ import {
 import { useAdmin } from '@/context/admin-context';
 import { ClientProfile, WithdrawalRecord } from '@/types/admin';
 import { ClientDetailModal } from '../clients/client-detail-modal';
+import { formatUSDT } from '@/utils/currency';
 
 export function WithdrawalsView() {
   const {
@@ -29,6 +30,8 @@ export function WithdrawalsView() {
     clients,
     approveWithdrawal,
     rejectWithdrawal,
+    setSelectedClientId,
+    setActiveTab,
     stats,
   } = useAdmin();
 
@@ -90,7 +93,8 @@ export function WithdrawalsView() {
       clients.find((c) => c.id === clientId) ||
       clients.find((c) => `${c.firstName} ${c.lastName}`.toLowerCase() === clientName.toLowerCase());
     if (client) {
-      setSelectedClientForDetail(client);
+      setSelectedClientId(client.id);
+      setActiveTab('clients');
     } else {
       showToast('Client profile not found in directory.');
     }
@@ -119,8 +123,7 @@ export function WithdrawalsView() {
   const totalDisbursedAmount = settledList.reduce((sum, w) => sum + w.amount, 0);
 
   const formatINR = (val?: number) => {
-    if (val === undefined || val === null || isNaN(val)) return '—';
-    return Math.round(val).toLocaleString('en-US') + ' USDT';
+    return formatUSDT(val);
   };
 
   return (
@@ -433,11 +436,11 @@ export function WithdrawalsView() {
                         <div className="text-[10px] text-slate-400 font-medium mt-0.5">
                           Gross: {formatINR(wd.grossAmount || wd.amount)} • Fee (3%):{' '}
                           <span className="text-amber-400 font-semibold">
-                            -{formatINR(wd.feeAmount || Math.round((wd.grossAmount || wd.amount) * 0.03))}
+                            -{formatINR(wd.feeAmount || ((wd.grossAmount || wd.amount) * 0.03))}
                           </span>
                         </div>
                         <div className="text-[10px] text-emerald-400 font-medium mt-0.5">
-                          3.75% Principal ({formatINR(Math.round((wd.grossAmount || wd.amount) / 2))}) + 3.75% Profit ({formatINR(Math.round((wd.grossAmount || wd.amount) / 2))})
+                          Principal ({formatINR((wd.grossAmount || wd.amount) / 2)}) + Profit ({formatINR((wd.grossAmount || wd.amount) / 2)})
                         </div>
                       </td>
 
@@ -587,7 +590,7 @@ export function WithdrawalsView() {
                   -
                   {formatINR(
                     approvingRecord.feeAmount ||
-                      Math.round((approvingRecord.grossAmount || approvingRecord.amount) * 0.03)
+                      ((approvingRecord.grossAmount || approvingRecord.amount) * 0.03)
                   )}
                 </span>
               </div>

@@ -3,6 +3,21 @@ export type PlanStatus = 'active' | 'pending_assignment' | 'matured' | 'cancelle
 export type WithdrawalStatus = 'pending_approval' | 'disbursed' | 'rejected';
 export type ReferralStatus = 'pending_activation' | 'pending' | 'active' | 'completed' | 'cancelled';
 
+export interface ClientPlan {
+  planInstanceId: string;
+  planId: string;
+  planName: string;
+  capitalAmount: number;
+  startDate: string;
+  durationMonths: number;
+  dailyReturnPct: number;
+  monthlyReturnPct: number;
+  grossTotalReturnPct?: number;
+  status: 'active' | 'matured' | 'cancelled';
+  paymentReference?: string;
+  assignedAt?: string;
+}
+
 export interface ClientProfile {
   id: string;
   clientId?: string;
@@ -12,11 +27,13 @@ export interface ClientProfile {
   phone: string;
   isPhoneVerified: boolean;
   kycStatus: KYCStatus;
+  tier?: string;
   assignedPlanId: string | null;
   assignedPlanName?: string;
   assignedPlanAmount?: number;
   assignedPlanStartDate?: string;
   assignedPlanStatus: PlanStatus;
+  activePlans?: ClientPlan[];
   currentMonthIndex: number;
   currentMonthWithdrawn: boolean;
   lastWithdrawalDate?: string;
@@ -135,5 +152,18 @@ export interface ClientReferralSummary {
   neededForNext: number;
   plansRemainingForNext: number;
   monthlyCommissionYield: number;
+  totalEarnedCommissions?: number;
   refereeList: ReferredUserItem[];
+  referredClients?: any[];
+}
+
+export interface UserFeedbackItem {
+  id: string;
+  feedbackId: string;
+  category: string;
+  rating: number;
+  message: string;
+  userEmail: string;
+  userName: string;
+  createdAt: string;
 }

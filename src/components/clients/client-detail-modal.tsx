@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   X,
   User,
@@ -14,6 +14,7 @@ import {
   Share2,
   Calendar,
   AlertCircle,
+  AlertTriangle,
   Copy,
   Check,
   Award,
@@ -24,9 +25,11 @@ import {
   Percent,
   ChevronRight,
   ExternalLink,
+  Trash2,
 } from 'lucide-react';
 import { useAdmin } from '@/context/admin-context';
 import { ClientProfile } from '@/types/admin';
+import { formatUSDT } from '@/utils/currency';
 import {
   computeClientReferralStats,
   REFERRAL_LEVEL_RULES,
@@ -39,6 +42,42 @@ interface ClientDetailModalProps {
   onOpenAssignModal?: (clientId: string) => void;
 }
 
+const isPhoneAdded = (phone?: string) =>
+  Boolean(phone && phone.trim().length > 0 && phone.trim().toLowerCase() !== 'n/a' && phone.trim() !== '—');
+
+function calculateCompletedDays(startDateStr?: string | Date): number {
+  if (!startDateStr) return 0;
+  let startYear: number, startMonth: number, startDay: number;
+  if (typeof startDateStr === 'string') {
+    const cleanStr = startDateStr.split('T')[0];
+    const parts = cleanStr.split(/[-/]/);
+    if (parts.length >= 3) {
+      startYear = parseInt(parts[0], 10);
+      startMonth = parseInt(parts[1], 10) - 1;
+      startDay = parseInt(parts[2], 10);
+    } else {
+      const d = new Date(startDateStr);
+      if (isNaN(d.getTime())) return 0;
+      startYear = d.getFullYear();
+      startMonth = d.getMonth();
+      startDay = d.getDate();
+    }
+  } else {
+    const d = new Date(startDateStr);
+    if (isNaN(d.getTime())) return 0;
+    startYear = d.getFullYear();
+    startMonth = d.getMonth();
+    startDay = d.getDate();
+  }
+
+  const now = new Date();
+  const startMidnight = new Date(startYear, startMonth, startDay, 0, 0, 0, 0);
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const diffMs = todayMidnight.getTime() - startMidnight.getTime();
+  if (diffMs <= 0) return 0;
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
 export function ClientDetailModal({
   client,
   isOpen,
@@ -47,9 +86,11 @@ export function ClientDetailModal({
 }: ClientDetailModalProps) {
   const {
     clients,
+    plans,
     referrals,
     withdrawals,
     verifyClientPhone,
+    revokeClientPlanInstance,
     approveWithdrawal,
     rejectWithdrawal,
   } = useAdmin();
@@ -59,8 +100,7 @@ export function ClientDetailModal({
   const [toast, setToast] = useState('');
   const [customUtr, setCustomUtr] = useState('');
   const [approvingWdId, setApprovingWdId] = useState<string | null>(null);
-
-  if (!isOpen || !client) return null;
+  const [currentTime] = useState(() => Date.now());
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -68,12 +108,32 @@ export function ClientDetailModal({
   };
 
   // Compute live referral stats for this client
-  const referralStats = computeClientReferralStats(client, clients, referrals);
+  const referralStats = useMemo(() => {
+    if (!client) {
+      return {
+        referralCode: 'INF-0000',
+        totalReferred: 0,
+        activePlanReferrals: 0,
+        level: 0,
+        levelName: 'Level 0',
+        roiPct: 0,
+        neededForNext: 2,
+        plansRemainingForNext: 2,
+        monthlyCommissionYield: 0,
+        refereeList: [],
+        totalEarnedCommissions: 0,
+      };
+    }
+    return computeClientReferralStats(client, clients, referrals);
+  }, [client, clients, referrals]);
 
   // Get all withdrawals for this client
-  const clientWithdrawals = withdrawals.filter(
-    (w) => w.clientId === client.id || w.clientName.toLowerCase() === `${client.firstName} ${client.lastName}`.toLowerCase()
-  );
+  const clientWithdrawals = useMemo(() => {
+    if (!client) return [];
+    return withdrawals.filter(
+      (w) => w.clientId === client.id || w.clientName.toLowerCase() === `${client.firstName} ${client.lastName}`.toLowerCase()
+    );
+  }, [client, withdrawals]);
 
   const pendingWithdrawal = clientWithdrawals.find(
     (w) => w.status === 'pending_approval'
@@ -84,21 +144,13 @@ export function ClientDetailModal({
     REFERRAL_LEVEL_RULES[0];
 
   const formatINR = (val?: number) => {
-    if (val === undefined || val === null) return '—';
-    return Math.round(val).toLocaleString('en-US') + ' USDT';
+    return formatUSDT(val);
   };
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(referralStats.referralCode);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
-  };
-
-  const handleVerifyPhone = () => {
-    const res = verifyClientPhone(client.id);
-    if (res.success) {
-      showToast(res.message);
-    }
   };
 
   const handleApprovePayout = (wdId: string) => {
@@ -110,20 +162,130 @@ export function ClientDetailModal({
     }
   };
 
-  const monthlyPayout = client.assignedPlanAmount
-    ? (client.assignedPlanAmount * 15) / 100
-    : 0;
-  const dailyProfit = client.assignedPlanAmount
-    ? (client.assignedPlanAmount * 0.5) / 100
-    : 0;
+  const handleRevokeSingleContract = (contractId: string, planName: string, capital: number) => {
+    if (!client) return;
+    if (
+      confirm(
+        `Are you sure you want to revoke contract "${planName}" (${formatINR(capital)})? All other active plans for ${client.firstName} ${client.lastName} will continue unaffected.`,
+      )
+    ) {
+      const res = revokeClientPlanInstance(client.id, contractId);
+      if (res.success) {
+        showToast(res.message);
+      }
+    }
+  };
+
+  const displayPlans = useMemo(() => {
+    if (!client) return [];
+    if (client.activePlans && client.activePlans.length > 0) {
+      const activeContracts = client.activePlans
+        .filter((p: any) => (p.status || "active") === "active")
+        .map((p: any, idx: number) => {
+          const duration = p.durationMonths || 14;
+          const maxDays = duration * 30;
+          const days = calculateCompletedDays(p.startDate);
+          const effDays = Math.min(maxDays, days);
+          const dailyRate = p.dailyReturnPct ?? 0.5;
+          const monthlyRate = p.monthlyReturnPct ?? 15.0;
+          const grossRate = p.grossTotalReturnPct ?? (monthlyRate * duration);
+          const cap = Number(p.capitalAmount || 0);
+          const daily = (cap * dailyRate) / 100 || 0;
+          const accrued = daily * effDays || 0;
+          const monthly = (cap * monthlyRate) / 100 || 0;
+          const grossReturn = (cap * grossRate) / 100 || 0;
+          return {
+            ...p,
+            capitalAmount: cap,
+            index: idx + 1,
+            durationMonths: duration,
+            daysElapsed: days,
+            effectiveDays: effDays,
+            maxDays,
+            dailyProfit: daily,
+            accruedProfit: accrued,
+            monthlyPayout: monthly,
+            grossReturn,
+          };
+        });
+
+      if (activeContracts.length > 0) {
+        return activeContracts;
+      }
+    }
+
+    const fallbackCap = Number(client.assignedPlanAmount || client.totalAum || 0);
+    if (fallbackCap > 0) {
+      const assignedPlan = plans.find(
+        (p) =>
+          p.id === client.assignedPlanId ||
+          (p as any).planId === client.assignedPlanId ||
+          (client.assignedPlanName &&
+            p.planName.toLowerCase() === client.assignedPlanName.toLowerCase())
+      );
+      const planDuration = assignedPlan?.durationMonths ?? 14;
+      const planDailyRate = assignedPlan?.dailyReturnPct ?? 0.5;
+      const planMonthlyPct = assignedPlan?.monthlyReturnPct ?? 15.0;
+      const planGrossTotalReturnPct =
+        assignedPlan?.grossTotalReturnPct ?? planMonthlyPct * planDuration;
+
+      const maxDays = planDuration * 30;
+      const days = calculateCompletedDays(client.assignedPlanStartDate);
+      const effDays = Math.min(maxDays, days);
+      const cap = fallbackCap;
+      const daily = (cap * planDailyRate) / 100 || 0;
+      const accrued = daily * effDays || 0;
+      const monthly = (cap * planMonthlyPct) / 100 || 0;
+      const grossReturn = (cap * planGrossTotalReturnPct) / 100 || 0;
+
+      return [
+        {
+          planInstanceId: 'primary-plan',
+          planId: client.assignedPlanId || 'plan-default',
+          planName: client.assignedPlanName || assignedPlan?.planName || 'Private Wealth Accelerator',
+          capitalAmount: cap,
+          startDate: client.assignedPlanStartDate || new Date().toISOString().split('T')[0],
+          durationMonths: planDuration,
+          dailyReturnPct: planDailyRate,
+          monthlyReturnPct: planMonthlyPct,
+          grossTotalReturnPct: planGrossTotalReturnPct,
+          status: 'active' as const,
+          index: 1,
+          daysElapsed: days,
+          effectiveDays: effDays,
+          maxDays,
+          dailyProfit: daily,
+          accruedProfit: accrued,
+          monthlyPayout: monthly,
+          grossReturn,
+        },
+      ];
+    }
+
+    return [];
+  }, [client, plans]);
+
+  const totalCapitalAllocated = displayPlans.length > 0
+    ? displayPlans.reduce((sum: number, p: any) => sum + (Number(p.capitalAmount) || 0), 0)
+    : (Number(client?.assignedPlanAmount) || Number(client?.totalAum) || 0);
+  const totalDailyProfit = displayPlans.reduce((sum: number, p: any) => sum + (Number(p.dailyProfit) || 0), 0);
+  const totalAccruedReturns = displayPlans.reduce((sum: number, p: any) => sum + (Number(p.accruedProfit) || 0), 0);
+  const totalMonthlyPayout = displayPlans.reduce((sum: number, p: any) => sum + (Number(p.monthlyPayout) || 0), 0);
+  const totalMaturityGross = displayPlans.reduce((sum: number, p: any) => sum + (Number(p.grossReturn) || 0), 0);
+
+  const primaryPlan = displayPlans[0];
+  const planDuration = primaryPlan?.durationMonths ?? 14;
+  const planMonthlyPct = primaryPlan?.monthlyReturnPct ?? 15.0;
+
+  if (!isOpen || !client) return null;
+
+  const monthlyPayout = totalMonthlyPayout;
+  const dailyProfit = totalDailyProfit;
   const planStart = client.assignedPlanStartDate ? new Date(client.assignedPlanStartDate) : new Date();
-  const daysElapsed = Math.max(1, Math.min(420, Math.floor((Date.now() - planStart.getTime()) / (1000 * 60 * 60 * 24)) + 1));
-  const totalAccruedSoFar = daysElapsed * dailyProfit;
-  const monthlyCapitalReturn = monthlyPayout / 2; // 7.5%
-  const monthlyProfitReturn = monthlyPayout / 2; // 7.5%
-  const totalMaturityGross = client.assignedPlanAmount
-    ? (client.assignedPlanAmount * 210) / 100
-    : 0;
+  const daysElapsed = Math.max(1, Math.min(planDuration * 30, Math.floor((currentTime - planStart.getTime()) / (1000 * 60 * 60 * 24)) + 1));
+  const totalAccruedSoFar = totalAccruedReturns;
+  const monthlyCapitalReturn = monthlyPayout / 2;
+  const monthlyProfitReturn = monthlyPayout / 2;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-in fade-in duration-200">
@@ -146,8 +308,8 @@ export function ClientDetailModal({
           <div className="flex items-center gap-4 min-w-0">
             {/* Avatar */}
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#D4AF37]/20 to-[#141C2E] border-2 border-[#D4AF37]/60 flex items-center justify-center text-[#D4AF37] font-black text-xl shrink-0 shadow-lg shadow-[#D4AF37]/10">
-              {client.firstName[0]}
-              {client.lastName[0]}
+              {(client.firstName?.[0] || 'I').toUpperCase()}
+              {(client.lastName?.[0] || '').toUpperCase()}
             </div>
 
             <div className="min-w-0">
@@ -215,19 +377,19 @@ export function ClientDetailModal({
               {formatINR(client.assignedPlanAmount)}
             </div>
             <div className="text-[11px] text-[#D4AF37] font-semibold mt-0.5">
-              {client.assignedPlanStatus === 'active' ? 'Active 14M Tranche' : 'Awaiting Plan'}
+              {client.assignedPlanStatus === 'active' ? `Active ${planDuration}M Tranche` : 'Awaiting Plan'}
             </div>
           </div>
 
           <div className="p-4 bg-[#0D131F]">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              15% Monthly Payout
+              {planMonthlyPct}% Monthly Payout
             </span>
             <div className="text-base md:text-lg font-black text-emerald-400 mt-1">
               {monthlyPayout > 0 ? formatINR(monthlyPayout) : '—'}
             </div>
             <div className="text-[11px] text-slate-400 mt-0.5">
-              7.5% Cap + 7.5% Profit
+              {(planMonthlyPct / 2).toFixed(1)}% Cap + {(planMonthlyPct / 2).toFixed(1)}% Profit
             </div>
           </div>
 
@@ -319,26 +481,20 @@ export function ClientDetailModal({
           {/* TAB 1: OVERVIEW & CREDENTIALS */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
-              {/* Phone Verification Notice Banner if not verified */}
-              {!client.isPhoneVerified && (
+              {/* Phone Status Notice Banner if phone not added */}
+              {!isPhoneAdded(client.phone) && (
                 <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <Clock className="w-5 h-5 text-amber-400 shrink-0" />
+                    <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
                     <div>
                       <h4 className="text-xs font-bold text-amber-300">
-                        Phone Verification Required
+                        Phone Number Not Added
                       </h4>
                       <p className="text-[11px] text-amber-200/80">
-                        This investor has registered their account but must verify their phone number (+91 {client.phone}) before accessing investment plans, withdrawals, and referral tracking.
+                        This investor has registered their account but has not added a mobile phone number yet.
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={handleVerifyPhone}
-                    className="px-3.5 py-1.5 rounded-xl bg-emerald-500 text-black font-extrabold text-xs hover:brightness-110 shrink-0 shadow-md transition-all"
-                  >
-                    ✓ Authorize Verification
-                  </button>
                 </div>
               )}
 
@@ -373,18 +529,24 @@ export function ClientDetailModal({
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                         Registered Mobile Number
                       </span>
-                      {client.isPhoneVerified ? (
+                      {isPhoneAdded(client.phone) ? (
                         <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
-                          <CheckCircle className="w-3 h-3" /> Verified
+                          <CheckCircle className="w-3 h-3" /> Added
                         </span>
                       ) : (
                         <span className="text-[10px] font-bold text-amber-400 flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> Pending OTP
+                          <AlertCircle className="w-3 h-3" /> Not Added
                         </span>
                       )}
                     </div>
                     <span className="font-bold text-white text-sm mt-0.5 block">
-                      {client.phone}
+                      {isPhoneAdded(client.phone) ? (
+                        client.phone
+                      ) : (
+                        <span className="text-slate-500 font-normal italic text-xs">
+                          Phone number not added
+                        </span>
+                      )}
                     </span>
                   </div>
 
@@ -474,187 +636,149 @@ export function ClientDetailModal({
             </div>
           )}
 
-          {/* TAB 2: INVESTMENT SCHEDULE & 14-MONTH TRANCHE */}
+          {/* TAB 2: INVESTMENT SCHEDULE & ALL ACTIVE PLANS */}
           {activeTab === 'plan' && (
             <div className="space-y-6">
-              {client.assignedPlanStatus === 'active' ? (
+              {displayPlans.length > 0 ? (
                 <>
-                  {/* Plan Overview Card */}
-                  <div className="rounded-2xl bg-gradient-to-br from-[#0D131F] to-[#141C2E] border border-[#D4AF37]/40 p-6 space-y-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <span className="px-2.5 py-1 rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 text-[#D4AF37] font-bold text-[10px] uppercase tracking-wider">
-                          Contractual Structured Vehicle
-                        </span>
-                        <h3 className="text-lg font-black text-white mt-2">
-                          {client.assignedPlanName}
-                        </h3>
-                        <p className="text-xs text-slate-400 mt-1">
-                          Private contractual high-yield wealth tranche providing 15.0% monthly distribution over a 14-month contractual period.
-                        </p>
-                      </div>
-
-                      {onOpenAssignModal && (
-                        <button
-                          onClick={() => onOpenAssignModal(client.id)}
-                          className="px-3.5 py-1.5 rounded-xl bg-[#080C14] hover:bg-[#1E293B] border border-[#1E293B] text-slate-300 hover:text-white font-bold text-xs transition-all shrink-0"
-                        >
-                          Modify Plan Capital
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Progress Bar Month Index of 14 */}
-                    <div className="pt-2">
-                      <div className="flex items-center justify-between text-xs mb-1.5">
-                        <span className="font-bold text-white">
-                          Tenure Progress: Month {client.currentMonthIndex} of 14
-                        </span>
-                        <span className="font-bold text-[#D4AF37]">
-                          {Math.round((client.currentMonthIndex / 14) * 100)}% Complete
-                        </span>
-                      </div>
-                      <div className="w-full h-3 rounded-full bg-[#080C14] border border-[#1E293B] overflow-hidden p-0.5">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] to-[#F59E0B] transition-all duration-500"
-                          style={{
-                            width: `${Math.min(100, Math.round((client.currentMonthIndex / 14) * 100))}%`,
-                          }}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1">
-                        <span>Started: {client.assignedPlanStartDate || '2026-10-01'}</span>
-                        <span>Maturity: 14 Months</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Daily Incremental Accrual Card (0.5% / day) */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 rounded-2xl bg-[#080C14] border border-emerald-500/40">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          Daily Increment (+0.5%)
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">
-                          Active Daily Accrual
-                        </span>
-                      </div>
-                      <div className="text-2xl font-black text-emerald-400 mt-1">
-                        +{formatINR(dailyProfit)}
-                        <span className="text-xs text-slate-400 font-normal"> / day</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 mt-1">
-                        Accrues every 24 hours on {formatINR(client.assignedPlanAmount)} principal
-                      </p>
-                    </div>
-
-                    <div className="p-4 rounded-2xl bg-[#080C14] border border-[#D4AF37]/40">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          Accrued Returns to Date
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] font-bold text-[10px]">
-                          Day {daysElapsed} of 420
-                        </span>
-                      </div>
-                      <div className="text-2xl font-black text-white mt-1">
-                        {formatINR(totalAccruedSoFar)}
-                      </div>
-                      <p className="text-[11px] text-slate-400 mt-1">
-                        Accumulated across {daysElapsed} active calendar days
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* 15% Monthly Return Structure Card */}
-                  <div className="rounded-2xl bg-[#080C14] border border-[#1E293B] p-5 space-y-4">
-                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                      <Percent className="w-3.5 h-3.5 text-[#D4AF37]" />
-                      <span>15.0% Monthly Distribution Formula</span>
-                    </h4>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                      <div className="p-4 rounded-xl bg-[#0D131F] border border-[#1E293B]">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                          Total Monthly Payout (15%)
-                        </span>
-                        <div className="text-xl font-black text-white mt-1">
-                          {formatINR(monthlyPayout)}
-                        </div>
-                        <span className="text-[10px] text-emerald-400 mt-1 block font-semibold">
-                          Disbursed each 30-day window
-                        </span>
-                      </div>
-
-                      <div className="p-4 rounded-xl bg-[#0D131F] border border-[#1E293B]">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                          7.5% Principal Return
-                        </span>
-                        <div className="text-xl font-black text-blue-400 mt-1">
-                          {formatINR(monthlyCapitalReturn)}
-                        </div>
-                        <span className="text-[10px] text-slate-400 mt-1 block">
-                          Systematic capital repayment
-                        </span>
-                      </div>
-
-                      <div className="p-4 rounded-xl bg-[#0D131F] border border-[#1E293B]">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                          7.5% Net Profit Yield
-                        </span>
-                        <div className="text-xl font-black text-emerald-400 mt-1">
-                          {formatINR(monthlyProfitReturn)}
-                        </div>
-                        <span className="text-[10px] text-slate-400 mt-1 block">
-                          Contractual net gain
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-between text-xs">
-                      <div>
-                        <span className="font-bold text-blue-300 block">
-                          Total 14-Month Gross Yield (210%)
-                        </span>
-                        <span className="text-[11px] text-blue-200/80">
-                          105% Return of Capital ({formatINR(client.assignedPlanAmount)}) + 105% Pure Profit ({formatINR(client.assignedPlanAmount)})
-                        </span>
-                      </div>
-                      <div className="text-base font-black text-white text-right">
-                        {formatINR(totalMaturityGross)}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Current Month Status */}
-                  <div className="rounded-2xl bg-[#080C14] border border-[#1E293B] p-5 flex items-center justify-between gap-4">
+                  {/* Top Action & Overview */}
+                  <div className="flex items-center justify-between gap-4 flex-wrap pb-2 border-b border-[#1E293B]">
                     <div>
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                        Month {client.currentMonthIndex} Payout Window Status
-                      </span>
-                      <div className="text-sm font-bold text-white mt-1 flex items-center gap-2">
-                        {client.currentMonthWithdrawn ? (
-                          <span className="text-emerald-400 flex items-center gap-1.5">
-                            <CheckCircle className="w-4 h-4" />
-                            Payout claimed & disbursed ({client.lastWithdrawalDate || 'Settled'})
-                          </span>
-                        ) : (
-                          <span className="text-amber-400 flex items-center gap-1.5">
-                            <Clock className="w-4 h-4" />
-                            Payout available for client claim in mobile app
-                          </span>
-                        )}
-                      </div>
+                      <h3 className="text-base font-black text-white">
+                        Active Investment Contracts ({displayPlans.length})
+                      </h3>
+                      <p className="text-xs text-slate-400">
+                        {displayPlans.length > 1
+                          ? `${displayPlans.length} plans running concurrently in parallel with independent terms & timelines.`
+                          : 'Independent high-yield private contract actively accruing returns.'}
+                      </p>
                     </div>
 
-                    <div className="text-right">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                        Net Transfer
+                    {onOpenAssignModal && (
+                      <button
+                        onClick={() => onOpenAssignModal(client.id)}
+                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white font-extrabold text-xs hover:brightness-110 shadow-md shadow-emerald-500/20 transition-all flex items-center gap-1.5"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        <span>+ Allocate Additional Plan</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* ALL INDIVIDUAL ACTIVE PLANS (NO OVERWRITING, FULL INDIVIDUAL VISIBILITY) */}
+                  <div className="space-y-4">
+                    {displayPlans.map((p: any, idx: number) => (
+                      <div
+                        key={p.planInstanceId || idx}
+                        className="rounded-2xl bg-gradient-to-br from-[#0D131F] to-[#141C2E] border border-[#D4AF37]/30 p-5 space-y-4 hover:border-[#D4AF37]/60 transition-all shadow-lg"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[10px] uppercase">
+                                Plan #{p.index || idx + 1} Active
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 text-[#D4AF37] font-bold text-[10px]">
+                                {p.durationMonths} Months Term
+                              </span>
+                            </div>
+                            <h4 className="text-base font-black text-white">{p.planName}</h4>
+                            <p className="text-xs text-slate-400">
+                              Started: <strong className="text-white">{p.startDate}</strong> • Day {p.daysElapsed} of {p.maxDays} ({Math.min(100, Math.round((p.daysElapsed / (p.maxDays || 1)) * 100))}%)
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="text-right">
+                              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                                Invested Capital
+                              </span>
+                              <span className="text-lg font-black text-white">
+                                {formatINR(p.capitalAmount)}
+                              </span>
+                            </div>
+
+                            <button
+                              onClick={() => handleRevokeSingleContract(p.planInstanceId || p.id, p.planName, p.capitalAmount)}
+                              className="px-2.5 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-red-300 font-bold text-[11px] transition-all flex items-center gap-1 shadow-sm"
+                              title="Revoke only this plan contract without affecting other plans"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>Revoke</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Progress Bar for this plan */}
+                        <div className="space-y-1">
+                          <div className="w-full h-2 rounded-full bg-[#080C14] border border-[#1E293B] overflow-hidden p-0.5">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] to-emerald-400 transition-all duration-500"
+                              style={{
+                                width: `${Math.min(100, Math.max(3, Math.round((p.daysElapsed / (p.maxDays || 1)) * 100)))}%`,
+                              }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-[10px] text-slate-500">
+                            <span>Start: {p.startDate}</span>
+                            <span className="text-slate-400 font-semibold">
+                              {Math.max(0, p.maxDays - p.daysElapsed)} days remaining
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Individual Plan Metrics Breakdown */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2 border-t border-[#1E293B] text-xs">
+                          <div className="p-2.5 rounded-xl bg-[#080C14] border border-[#1E293B]">
+                            <span className="text-[9px] uppercase font-bold text-slate-400 block">Daily Increment</span>
+                            <span className="font-extrabold text-emerald-400 text-sm">+{formatINR(p.dailyProfit)}</span>
+                            <span className="text-[9px] text-slate-500 block">+{p.dailyReturnPct}% / day</span>
+                          </div>
+                          <div className="p-2.5 rounded-xl bg-[#080C14] border border-[#1E293B]">
+                            <span className="text-[9px] uppercase font-bold text-slate-400 block">Accrued Returns</span>
+                            <span className="font-extrabold text-[#D4AF37] text-sm">+{formatINR(p.accruedProfit)}</span>
+                            <span className="text-[9px] text-slate-500 block">{p.daysElapsed} days accrued</span>
+                          </div>
+                          <div className="p-2.5 rounded-xl bg-[#080C14] border border-[#1E293B]">
+                            <span className="text-[9px] uppercase font-bold text-slate-400 block">Monthly Payout</span>
+                            <span className="font-extrabold text-white text-sm">{formatINR(p.monthlyPayout)}</span>
+                            <span className="text-[9px] text-slate-500 block">+{p.monthlyReturnPct}% / mo</span>
+                          </div>
+                          <div className="p-2.5 rounded-xl bg-[#080C14] border border-[#1E293B]">
+                            <span className="text-[9px] uppercase font-bold text-slate-400 block">Maturity Gross</span>
+                            <span className="font-extrabold text-emerald-400 text-sm">{formatINR(p.grossReturn)}</span>
+                            <span className="text-[9px] text-slate-500 block">{p.grossTotalReturnPct}% total</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* PORTFOLIO TOTALS AGGREGATION */}
+                  <div className="rounded-2xl bg-[#080C14] border border-[#D4AF37]/40 p-5 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-[#1E293B]">
+                      <span className="text-xs font-bold text-[#D4AF37] uppercase tracking-wider">
+                        Combined Portfolio Summary ({displayPlans.length} Plans)
                       </span>
-                      <span className="text-base font-black text-white">
-                        {formatINR(monthlyPayout)}
+                      <span className="text-xs text-slate-400">
+                        Total Capital: <strong className="text-white">{formatINR(totalCapitalAllocated)}</strong>
                       </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                      <div className="p-3 rounded-xl bg-[#0D131F] border border-[#1E293B]">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase block">Total Daily Increment</span>
+                        <div className="text-lg font-black text-emerald-400 mt-1">+{formatINR(totalDailyProfit)} / day</div>
+                      </div>
+                      <div className="p-3 rounded-xl bg-[#0D131F] border border-[#1E293B]">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase block">Total Accrued to Date</span>
+                        <div className="text-lg font-black text-[#D4AF37] mt-1">+{formatINR(totalAccruedReturns)}</div>
+                      </div>
+                      <div className="p-3 rounded-xl bg-[#0D131F] border border-[#1E293B]">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase block">Total Monthly Distributions</span>
+                        <div className="text-lg font-black text-white mt-1">{formatINR(totalMonthlyPayout)} / mo</div>
+                      </div>
                     </div>
                   </div>
                 </>
@@ -669,7 +793,7 @@ export function ClientDetailModal({
                       Payment Verification & Plan Activation
                     </h3>
                     <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
-                      Once client payment is received in Infinix escrow, start their plan here. The plan will become active immediately and begin accruing 0.5% daily (15% monthly) in the investor&apos;s app.
+                      Once client payment is received in Infinix escrow, start their plan here. The plan will become active immediately and begin accruing daily returns in the investor&apos;s app.
                     </p>
                   </div>
                   {onOpenAssignModal && (
@@ -837,7 +961,7 @@ export function ClientDetailModal({
                         <th className="py-3 px-4">Registered Date</th>
                         <th className="py-3 px-4">Investment Plan</th>
                         <th className="py-3 px-4">Invested Capital</th>
-                        <th className="py-3 px-4">Referee Monthly ROI (15%)</th>
+                        <th className="py-3 px-4">Referee Monthly ROI</th>
                         <th className="py-3 px-4 text-right">
                           Monthly Yield ({referralStats.roiPct}%)
                         </th>
@@ -925,7 +1049,7 @@ export function ClientDetailModal({
                           Active Withdrawal Claim Awaiting Approval
                         </h4>
                         <p className="text-[11px] text-amber-200/80 mt-0.5">
-                          Claimed Month {pendingWithdrawal.monthIndex} of 14 distribution ({formatINR(pendingWithdrawal.amount)}) for {client.bankAccount}. Custodian fee waived.
+                          Claimed Month {pendingWithdrawal.monthIndex} of {planDuration} distribution ({formatINR(pendingWithdrawal.amount)}) for {client.bankAccount}. Custodian fee waived.
                         </p>
                       </div>
                     </div>
@@ -1058,16 +1182,7 @@ export function ClientDetailModal({
         {/* Modal Footer Quick Actions */}
         <div className="p-4 px-6 border-t border-[#1E293B] bg-[#080C14] flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            {!client.isPhoneVerified && (
-              <button
-                onClick={handleVerifyPhone}
-                className="px-3.5 py-2 rounded-xl bg-emerald-500 text-black font-extrabold text-xs hover:brightness-110 transition-all shadow"
-              >
-                ✓ Verify Phone Now
-              </button>
-            )}
-
-            {client.isPhoneVerified && client.assignedPlanStatus !== 'active' && onOpenAssignModal && (
+            {client.assignedPlanStatus !== 'active' && onOpenAssignModal && (
               <button
                 onClick={() => onOpenAssignModal(client.id)}
                 className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white font-extrabold text-xs hover:brightness-110 shadow-md shadow-emerald-500/20 transition-all flex items-center gap-1.5"
@@ -1082,7 +1197,7 @@ export function ClientDetailModal({
                 onClick={() => onOpenAssignModal(client.id)}
                 className="px-3 py-2 rounded-xl bg-[#0D131F] border border-[#1E293B] text-slate-300 hover:text-white font-semibold text-xs transition-all"
               >
-                Modify Allocated Capital
+                + Allocate Additional Plan
               </button>
             )}
           </div>

@@ -63,6 +63,10 @@ class ApiClient {
     return this.request<any[]>(`/clients${q}`);
   }
 
+  async getClient(clientId: string) {
+    return this.request<any>(`/clients/${clientId}`);
+  }
+
   async createClient(data: any) {
     return this.request<any>('/clients', {
       method: 'POST',
@@ -92,10 +96,10 @@ class ApiClient {
     });
   }
 
-  async revokePlan(clientId: string, adminName?: string, reason?: string) {
+  async revokePlan(clientId: string, adminName?: string, reason?: string, planInstanceId?: string) {
     return this.request<any>(`/clients/${clientId}/revoke-plan`, {
       method: 'POST',
-      body: JSON.stringify({ adminName, reason }),
+      body: JSON.stringify({ adminName, reason, planInstanceId }),
     });
   }
 
@@ -158,6 +162,15 @@ class ApiClient {
     if (category) params.append('category', category);
     const q = params.toString() ? `?${params.toString()}` : '';
     return this.request<any[]>(`/audit-logs${q}`);
+  }
+
+  // User Feedbacks
+  async getUserFeedbacks(search?: string, category?: string) {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (category && category !== 'all') params.append('category', category);
+    const q = params.toString() ? `?${params.toString()}` : '';
+    return this.request<any[]>(`/feedbacks${q}`);
   }
 
   // Health

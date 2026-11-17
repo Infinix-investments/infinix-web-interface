@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAdmin } from '@/context/admin-context';
 import { ReferralLevelTier } from '@/types/admin';
+import { formatUSDT } from '@/utils/currency';
 
 export function LevelsView() {
   const { referralTiers, updateReferralTier, clients, referrals } = useAdmin();
@@ -23,7 +24,7 @@ export function LevelsView() {
   const [toast, setToast] = useState('');
 
   const formatINR = (val: number) => {
-    return Math.round(val).toLocaleString('en-US') + ' USDT';
+    return formatUSDT(val);
   };
 
   const handleSaveTier = () => {

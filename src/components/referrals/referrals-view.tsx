@@ -15,6 +15,7 @@ import {
   Gift,
 } from 'lucide-react';
 import { useAdmin } from '@/context/admin-context';
+import { formatUSDT } from '@/utils/currency';
 
 export function ReferralsView() {
   const { referrals, disburseReferralCommission, stats, setActiveTab } = useAdmin();
@@ -35,8 +36,7 @@ export function ReferralsView() {
   };
 
   const formatINR = (val?: number) => {
-    if (val === undefined || val === null || isNaN(val)) return '—';
-    return Math.round(val).toLocaleString('en-US') + ' USDT';
+    return formatUSDT(val);
   };
 
   const filteredReferrals = referrals.filter((r) => {

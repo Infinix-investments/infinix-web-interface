@@ -8,6 +8,7 @@ import {
   InvestmentPlanConfig,
   ReferralLevelTier,
   ReferralRecord,
+  UserFeedbackItem,
   WithdrawalRecord,
 } from "@/types/admin";
 import React, {
@@ -25,21 +26,31 @@ export type AdminTab =
   | "withdrawals"
   | "referrals"
   | "levels"
-  | "audit";
+  | "reports"
+  | "audit"
+  | "feedbacks";
 
 interface AdminContextType {
   activeTab: AdminTab;
   setActiveTab: (tab: AdminTab) => void;
+  selectedClientId: string | null;
+  setSelectedClientId: (id: string | null) => void;
   clients: ClientProfile[];
   plans: InvestmentPlanConfig[];
   withdrawals: WithdrawalRecord[];
   referrals: ReferralRecord[];
   referralTiers: ReferralLevelTier[];
   auditLogs: AuditLogItem[];
+  userFeedbacks: UserFeedbackItem[];
+  refreshFeedbacks: () => Promise<void>;
   verifyClientPhone: (clientId: string) => {
     success: boolean;
     message: string;
   };
+  updateClientProfile: (
+    clientId: string,
+    updates: Partial<ClientProfile>,
+  ) => Promise<{ success: boolean; message: string }>;
   assignPlanToClient: (
     clientId: string,
     planId: string,
@@ -48,6 +59,11 @@ interface AdminContextType {
     paymentReference?: string,
   ) => { success: boolean; message: string };
   revokeClientPlan: (clientId: string) => { success: boolean; message: string };
+  revokeClientPlanInstance: (
+    clientId: string,
+    planInstanceId: string,
+    reason?: string,
+  ) => { success: boolean; message: string };
   createPlan: (data: Partial<InvestmentPlanConfig>) => Promise<{
     success: boolean;
     message: string;
@@ -94,6 +110,7 @@ interface AdminContextType {
     totalReferralsCount: number;
     activeReferralsCount: number;
     monthlyReferralCommissionTotal: number;
+    userFeedbacksCount: number;
   };
 }
 
@@ -101,6 +118,7 @@ const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
 export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [clients, setClients] = useState<ClientProfile[]>([]);
   const [plans, setPlans] = useState<InvestmentPlanConfig[]>(INITIAL_PLANS);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>([]);
@@ -109,19 +127,30 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     INITIAL_REFERRAL_TIERS,
   );
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
+  const [userFeedbacks, setUserFeedbacks] = useState<UserFeedbackItem[]>([]);
+
+  const refreshFeedbacks = async () => {
+    try {
+      const res = await api.getUserFeedbacks();
+      if (res.success && Array.isArray(res.data)) {
+        setUserFeedbacks(res.data);
+      }
+    } catch {}
+  };
 
   // Synchronize state with unified Fastify + MongoDB backend server
   useEffect(() => {
     let isMounted = true;
     async function loadServerData() {
       try {
-        const [cRes, pRes, wRes, rRes, tRes, aRes] = await Promise.allSettled([
+        const [cRes, pRes, wRes, rRes, tRes, aRes, fRes] = await Promise.allSettled([
           api.getClients(),
           api.getPlans(),
           api.getWithdrawals(),
           api.getReferrals(),
           api.getReferralTiers(),
           api.getAuditLogs(),
+          api.getUserFeedbacks(),
         ]);
 
         if (
@@ -173,6 +202,14 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           Array.isArray(aRes.value.data)
         ) {
           setAuditLogs(aRes.value.data);
+        }
+        if (
+          isMounted &&
+          fRes.status === "fulfilled" &&
+          fRes.value.success &&
+          Array.isArray(fRes.value.data)
+        ) {
+          setUserFeedbacks(fRes.value.data);
         }
       } catch {
         // Fallback gracefully to empty state
@@ -240,6 +277,46 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     };
   };
 
+  // 1b. UPDATE CLIENT PROFILE
+  const updateClientProfile = async (
+    clientId: string,
+    updates: Partial<ClientProfile>,
+  ): Promise<{ success: boolean; message: string }> => {
+    const client = clients.find((c) => c.id === clientId || c.clientId === clientId);
+    if (!client) return { success: false, message: "Client not found." };
+
+    const resolvedId = client.clientId || client.id;
+    setClients((prev) =>
+      prev.map((c) =>
+        c.id === clientId || c.clientId === clientId ? { ...c, ...updates } : c,
+      ),
+    );
+
+    try {
+      const res = await api.updateClient(resolvedId, updates);
+      if (res?.success) {
+        addAuditLog(
+          "Client Profile Updated",
+          "client_verification",
+          `Updated profile details for ${client.firstName} ${client.lastName} (${resolvedId}): ${Object.keys(updates).join(", ")}`,
+        );
+        return {
+          success: true,
+          message: `Client ${client.firstName} ${client.lastName} profile updated successfully.`,
+        };
+      }
+      return {
+        success: false,
+        message: res?.error || "Failed to update client profile on server.",
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err.message || "Network error updating client profile.",
+      };
+    }
+  };
+
   // 2. ASSIGN INVESTMENT PLAN
   const assignPlanToClient = (
     clientId: string,
@@ -260,35 +337,83 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     const resolvedPlanId = plan.id || (plan as any).planId;
     const today = startDate || new Date().toISOString().split("T")[0];
 
+    const newPlan = {
+      planInstanceId: `plan-${Date.now().toString().slice(-6)}`,
+      planId: resolvedPlanId,
+      planName: plan.planName,
+      capitalAmount: amount,
+      startDate: today,
+      durationMonths: plan.durationMonths || 14,
+      dailyReturnPct: plan.dailyReturnPct ?? 0.5,
+      monthlyReturnPct: plan.monthlyReturnPct ?? 15.0,
+      grossTotalReturnPct: plan.grossTotalReturnPct ?? ((plan.monthlyReturnPct ?? 15.0) * (plan.durationMonths || 14)),
+      status: 'active' as const,
+      paymentReference: paymentReference || '',
+      assignedAt: new Date().toISOString(),
+    };
+
     setClients((prev) =>
-      prev.map((c) =>
-        c.id === clientId || c.clientId === clientId || c.id === resolvedClientId || c.clientId === resolvedClientId
-          ? {
-              ...c,
-              assignedPlanId: resolvedPlanId,
-              assignedPlanName: plan.planName,
-              assignedPlanAmount: amount,
-              assignedPlanStartDate: today,
-              assignedPlanStatus: "active",
-              totalAum: amount,
-              currentMonthIndex: 1,
-              currentMonthWithdrawn: false,
-              paymentVerified: true,
-              paymentReference: paymentReference || "Bank Escrow Verified",
-            }
-          : c,
-      ),
+      prev.map((c) => {
+        if (c.id === clientId || c.clientId === clientId || c.id === resolvedClientId || c.clientId === resolvedClientId) {
+          const existingPlans = Array.isArray(c.activePlans) ? [...c.activePlans] : [];
+          // If activePlans was empty but client already had an active plan, preserve it!
+          if (existingPlans.length === 0 && c.assignedPlanId && c.assignedPlanAmount && c.assignedPlanAmount > 0) {
+            const prevP = plans.find((p) => p.id === c.assignedPlanId || (p as any).planId === c.assignedPlanId);
+            const prevDuration = prevP?.durationMonths || 14;
+            const prevDaily = prevP?.dailyReturnPct ?? 0.5;
+            const prevMonthly = prevP?.monthlyReturnPct ?? 15.0;
+            const prevGross = prevP?.grossTotalReturnPct ?? (prevMonthly * prevDuration);
+
+            existingPlans.push({
+              planInstanceId: `plan-initial-${c.clientId || c.id}`,
+              planId: c.assignedPlanId,
+              planName: c.assignedPlanName || prevP?.planName || 'Initial Plan',
+              capitalAmount: c.assignedPlanAmount,
+              startDate: c.assignedPlanStartDate || today,
+              durationMonths: prevDuration,
+              dailyReturnPct: prevDaily,
+              monthlyReturnPct: prevMonthly,
+              grossTotalReturnPct: prevGross,
+              status: 'active',
+              paymentReference: 'Initial Plan',
+              assignedAt: c.assignedPlanStartDate || new Date().toISOString(),
+            });
+          }
+          existingPlans.push(newPlan);
+
+          const totalCap = existingPlans.filter(p => p.status === 'active').reduce((sum, p) => sum + (Number(p.capitalAmount) || 0), 0);
+          const validDates = existingPlans.filter(p => p.status === 'active' && p.startDate).map(p => new Date(p.startDate).getTime()).filter(t => !isNaN(t));
+          const earliestDate = validDates.length > 0 ? new Date(Math.min(...validDates)).toISOString().split('T')[0] : (c.assignedPlanStartDate || today);
+
+          return {
+            ...c,
+            assignedPlanId: resolvedPlanId,
+            assignedPlanName: plan.planName,
+            assignedPlanAmount: totalCap,
+            assignedPlanStartDate: earliestDate,
+            assignedPlanStatus: "active" as const,
+            totalAum: totalCap,
+            activePlans: existingPlans,
+            currentMonthIndex: c.currentMonthIndex || 1,
+            currentMonthWithdrawn: false,
+            paymentVerified: true,
+            paymentReference: paymentReference || "Bank Escrow Verified",
+          };
+        }
+        return c;
+      }),
     );
 
     // If client was referred by someone, update referral record to active
     setReferrals((prev) =>
       prev.map((r) => {
         if (r.refereeId === clientId || r.refereeId === resolvedClientId) {
-          const comm = (amount * r.commissionRatePct) / 100;
+          const newCap = (r.status === 'active' ? (r.capitalAmount || 0) : 0) + amount;
+          const comm = (newCap * r.commissionRatePct) / 100;
           return {
             ...r,
             status: "active",
-            capitalAmount: amount,
+            capitalAmount: newCap,
             planName: plan.planName,
             monthlyCommissionAmount: comm,
           };
@@ -313,6 +438,24 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         paymentReference,
         plan.planName,
       )
+      .then((res) => {
+        if (res?.success && res?.data) {
+          const serverClient = res.data;
+          setClients((prev) =>
+            prev.map((c) =>
+              c.id === clientId || c.clientId === clientId || c.id === resolvedClientId || c.clientId === resolvedClientId
+                ? {
+                    ...c,
+                    ...serverClient,
+                    id: serverClient.clientId || c.id,
+                    clientId: serverClient.clientId || c.clientId,
+                    activePlans: Array.isArray(serverClient.activePlans) ? serverClient.activePlans : c.activePlans,
+                  }
+                : c
+            )
+          );
+        }
+      })
       .catch((err) => {
         console.error("Failed to assign plan on server:", err);
       });
@@ -425,20 +568,33 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    setPlans((prev) => prev.filter((p) => p.id !== id));
+    try {
+      const res = await api.deletePlan(id);
+      if (!res.success) {
+        return {
+          success: false,
+          message: res.error || "Failed to delete plan from database.",
+        };
+      }
 
-    addAuditLog(
-      "Plan Removed",
-      "plan_config",
-      `Deleted plan ${target.planName} (${id})`,
-    );
+      setPlans((prev) => prev.filter((p) => p.id !== id));
 
-    api.deletePlan(id).catch(() => {});
+      addAuditLog(
+        "Plan Removed",
+        "plan_config",
+        `Deleted plan ${target.planName} (${id})`,
+      );
 
-    return {
-      success: true,
-      message: `Plan "${target.planName}" has been removed.`,
-    };
+      return {
+        success: true,
+        message: `Plan "${target.planName}" has been removed.`,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err.message || "Failed to remove plan.",
+      };
+    }
   };
 
   // 3. REVOKE PLAN
@@ -489,6 +645,106 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     return {
       success: true,
       message: `Investment plan revoked for ${client.firstName} ${client.lastName}.`,
+    };
+  };
+
+  const revokeClientPlanInstance = (
+    clientId: string,
+    planInstanceId: string,
+    reason?: string,
+  ) => {
+    const client = clients.find((c) => c.id === clientId || c.clientId === clientId);
+    if (!client) return { success: false, message: "Client not found." };
+
+    const resolvedClientId = client.clientId || client.id;
+    const existingPlans = Array.isArray(client.activePlans) ? client.activePlans : [];
+    const targetPlan = existingPlans.find((p) => p.planInstanceId === planInstanceId);
+    const planLabel = targetPlan?.planName || "Investment Contract";
+
+    const remainingPlans = existingPlans.filter((p) => p.planInstanceId !== planInstanceId);
+    const remainingActive = remainingPlans.filter((p) => (p.status || "active") === "active");
+    const newTotalCap = remainingActive.reduce((sum, p) => sum + (Number(p.capitalAmount) || 0), 0);
+    const earliestDate = remainingActive.map((p) => p.startDate).filter(Boolean).sort()[0];
+
+    setClients((prev) =>
+      prev.map((c) => {
+        if (c.id === clientId || c.clientId === clientId || c.id === resolvedClientId || c.clientId === resolvedClientId) {
+          if (remainingActive.length === 0) {
+            return {
+              ...c,
+              assignedPlanId: null,
+              assignedPlanName: undefined,
+              assignedPlanAmount: 0,
+              assignedPlanStartDate: undefined,
+              assignedPlanStatus: "pending_assignment" as const,
+              activePlans: [],
+              totalAum: 0,
+            };
+          }
+          return {
+            ...c,
+            assignedPlanId: remainingActive[0].planId,
+            assignedPlanName: remainingActive[0].planName,
+            assignedPlanAmount: newTotalCap,
+            assignedPlanStartDate: earliestDate,
+            assignedPlanStatus: "active" as const,
+            activePlans: remainingPlans,
+            totalAum: newTotalCap,
+          };
+        }
+        return c;
+      }),
+    );
+
+    // Update referrals where this client is referee
+    setReferrals((prev) =>
+      prev.map((r) => {
+        if (r.refereeId === clientId || r.refereeId === resolvedClientId) {
+          const comm = (newTotalCap * (r.commissionRatePct || 5)) / 100;
+          return {
+            ...r,
+            status: newTotalCap > 0 ? "active" : "pending",
+            capitalAmount: newTotalCap,
+            monthlyCommissionAmount: comm,
+          };
+        }
+        return r;
+      }),
+    );
+
+    addAuditLog(
+      "Contract Plan Revoked",
+      "plan_assignment",
+      `Revoked individual contract "${planLabel}" (${targetPlan ? Number(targetPlan.capitalAmount).toLocaleString() : ""} USDT) for ${client.firstName} ${client.lastName}. Remaining active capital: ${newTotalCap.toLocaleString()} USDT.`,
+    );
+
+    api
+      .revokePlan(resolvedClientId, "Chief Wealth Admin (Altaf)", reason, planInstanceId)
+      .then((res) => {
+        if (res?.success && res?.data) {
+          const serverClient = res.data;
+          setClients((prev) =>
+            prev.map((c) =>
+              c.id === clientId || c.clientId === clientId || c.id === resolvedClientId || c.clientId === resolvedClientId
+                ? {
+                    ...c,
+                    ...serverClient,
+                    id: serverClient.clientId || c.id,
+                    clientId: serverClient.clientId || c.clientId,
+                    activePlans: Array.isArray(serverClient.activePlans) ? serverClient.activePlans : c.activePlans,
+                  }
+                : c
+            )
+          );
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to revoke plan instance on server:", err);
+      });
+
+    return {
+      success: true,
+      message: `Contract "${planLabel}" revoked successfully. Remaining AUM: ${newTotalCap.toLocaleString("en-US")} USDT.`,
     };
   };
 
@@ -746,7 +1002,13 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     const activeInvestorsCount = clients.filter(
       (c) => c.assignedPlanStatus === "active",
     ).length;
-    const pendingPhoneCount = clients.filter((c) => !c.isPhoneVerified).length;
+    const pendingPhoneCount = clients.filter(
+      (c) =>
+        !c.phone ||
+        c.phone.trim().length === 0 ||
+        c.phone.trim().toLowerCase() === "n/a" ||
+        c.phone.trim() === "—",
+    ).length;
 
     const pendingWithdrawals = withdrawals.filter(
       (w) => w.status === "pending_approval",
@@ -780,23 +1042,30 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       totalReferralsCount,
       activeReferralsCount,
       monthlyReferralCommissionTotal,
+      userFeedbacksCount: userFeedbacks.length,
     };
-  }, [clients, withdrawals, referrals]);
+  }, [clients, withdrawals, referrals, userFeedbacks]);
 
   return (
     <AdminContext.Provider
       value={{
         activeTab,
         setActiveTab,
+        selectedClientId,
+        setSelectedClientId,
         clients,
         plans,
         withdrawals,
         referrals,
         referralTiers,
         auditLogs,
+        userFeedbacks,
+        refreshFeedbacks,
         verifyClientPhone,
+        updateClientProfile,
         assignPlanToClient,
         revokeClientPlan,
+        revokeClientPlanInstance,
         createPlan,
         updatePlan,
         deletePlan,
