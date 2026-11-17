@@ -81,6 +81,13 @@ class ApiClient {
     });
   }
 
+  async linkReferrer(clientId: string, referrerCode: string, adminName?: string) {
+    return this.request<any>(`/clients/${clientId}/link-referrer`, {
+      method: 'POST',
+      body: JSON.stringify({ referrerCode, adminName }),
+    });
+  }
+
   async assignPlan(
     clientId: string,
     planId: string,

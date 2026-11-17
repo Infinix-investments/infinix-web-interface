@@ -100,6 +100,10 @@ interface AdminContextType {
     allocatedAmount?: number;
     referredByCode?: string;
   }) => { success: boolean; message: string; clientId: string };
+  linkClientReferrer: (
+    clientId: string,
+    referrerCode: string,
+  ) => Promise<{ success: boolean; message: string }>;
   stats: {
     totalAum: number;
     activeInvestorsCount: number;
@@ -993,6 +997,49 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     };
   };
 
+  const linkClientReferrer = async (
+    clientId: string,
+    referrerCode: string,
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      const res = await api.linkReferrer(
+        clientId,
+        referrerCode,
+        "Chief Wealth Admin (Altaf)",
+      );
+      if (res.success) {
+        const [cRes, rRes] = await Promise.all([
+          api.getClients(),
+          api.getReferrals(),
+        ]);
+        if (cRes.success && Array.isArray(cRes.data)) {
+          setClients(cRes.data);
+        }
+        if (rRes.success && Array.isArray(rRes.data)) {
+          setReferrals(rRes.data);
+        }
+        addAuditLog(
+          "Referral Link Updated",
+          "client_verification",
+          res.message || `Linked client ${clientId} to sponsor ${referrerCode}`,
+        );
+        return {
+          success: true,
+          message: res.message || "Sponsor linked successfully.",
+        };
+      }
+      return {
+        success: false,
+        message: res.error || "Failed to link sponsor.",
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err.message || "Failed to link sponsor.",
+      };
+    }
+  };
+
   // COMPUTED STATS
   const stats = useMemo(() => {
     const totalAum = clients.reduce(
@@ -1074,6 +1121,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         disburseReferralCommission,
         updateReferralTier,
         addNewClient,
+        linkClientReferrer,
         stats,
       }}
     >
