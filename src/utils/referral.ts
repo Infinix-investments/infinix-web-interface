@@ -206,6 +206,8 @@ export interface AdminLevelMember {
   email: string;
   phone?: string;
   referralCode?: string;
+  referredByCode?: string;
+  sponsorName?: string;
   planName: string;
   planCapital: number;
   dailyRoiAmount: number;
@@ -374,12 +376,23 @@ export function calculateAdminLevelNetwork(
         const daysElapsed = Math.max(0, Math.floor((nowMs - startMs) / (1000 * 60 * 60 * 24)));
         const totalAccrued = yourCut * daysElapsed;
 
+        const sponsorObj = allClients.find(
+          (c) =>
+            cleanCode(c.referralCode) === parentCode ||
+            cleanCode(c.clientId || c.id) === parentCode
+        );
+        const sponsorName = sponsorObj
+          ? `${sponsorObj.firstName} ${sponsorObj.lastName}`.trim()
+          : (child.referredByCode || parentCode);
+
         const member: AdminLevelMember = {
           id: child.id,
           name: `${child.firstName} ${child.lastName}`.trim(),
           email: child.email,
           phone: child.phone,
           referralCode: child.referralCode,
+          referredByCode: child.referredByCode || parentCode,
+          sponsorName,
           planName: child.assignedPlanName || (isActive ? 'Active Investment Plan' : 'Pending Plan'),
           planCapital: cap,
           dailyRoiAmount: Math.round(memberDailyRoi * 100) / 100,
