@@ -22,67 +22,67 @@ export const REFERRAL_LEVEL_RULES: LevelConfig[] = [
     level: 0,
     requiredPlans: 0,
     roiPct: 0,
-    name: 'Level 0 (Pending 2 Plans)',
+    name: 'Level 0 (No Active Referrals)',
     badgeLabel: 'Level 0 • 0%',
     badgeBg: 'bg-slate-800/80',
     badgeText: 'text-slate-400',
     badgeBorder: 'border-slate-700',
-    description: 'Requires 2 active plan referrals to unlock Level 1 (10% ROI yield).',
+    description: 'Refer 1 investor with an active plan to start earning 10% daily ROI from Level 1.',
   },
   {
     level: 1,
-    requiredPlans: 2,
+    requiredPlans: 1,
     roiPct: 10,
     name: 'Level 1 (10% ROI)',
     badgeLabel: 'Level 1 • 10% ROI',
     badgeBg: 'bg-emerald-500/15',
     badgeText: 'text-emerald-400',
     badgeBorder: 'border-emerald-500/30',
-    description: 'Direct Wealth Partner. Earns 10% of referred investors monthly ROI. Unlocked with 2 active plan referrals.',
+    description: 'Direct Wealth Partner. Earns 10% of direct referred investors monthly ROI immediately upon 1st referral.',
   },
   {
     level: 2,
-    requiredPlans: 4,
+    requiredPlans: 1,
     roiPct: 5,
     name: 'Level 2 (5% ROI)',
     badgeLabel: 'Level 2 • 5% ROI',
     badgeBg: 'bg-blue-500/15',
     badgeText: 'text-blue-400',
     badgeBorder: 'border-blue-500/30',
-    description: 'Syndication Partner. Earns 5% of referred investors monthly ROI. Unlocked with 4 active plan referrals.',
+    description: '2nd Generation Partner. Earns 5% of secondary referred investors monthly ROI.',
   },
   {
     level: 3,
-    requiredPlans: 6,
+    requiredPlans: 1,
     roiPct: 3,
     name: 'Level 3 (3% ROI)',
     badgeLabel: 'Level 3 • 3% ROI',
     badgeBg: 'bg-purple-500/15',
     badgeText: 'text-purple-400',
     badgeBorder: 'border-purple-500/30',
-    description: 'Executive Partner. Earns 3% of referred investors monthly ROI. Unlocked with 6 active plan referrals.',
+    description: '3rd Generation Partner. Earns 3% of tertiary referred investors monthly ROI.',
   },
   {
     level: 4,
-    requiredPlans: 8,
+    requiredPlans: 1,
     roiPct: 2,
     name: 'Level 4 (2% ROI)',
     badgeLabel: 'Level 4 • 2% ROI',
     badgeBg: 'bg-amber-500/15',
     badgeText: 'text-amber-400',
     badgeBorder: 'border-amber-500/30',
-    description: 'Managing Partner. Earns 2% of referred investors monthly ROI. Unlocked with 8 active plan referrals.',
+    description: '4th Generation Partner. Earns 2% of quaternary referred investors monthly ROI.',
   },
   {
     level: 5,
-    requiredPlans: 10,
+    requiredPlans: 1,
     roiPct: 1,
     name: 'Level 5 (1% ROI)',
     badgeLabel: 'Level 5 • 1% ROI',
     badgeBg: 'bg-[#D4AF37]/15',
     badgeText: 'text-[#D4AF37]',
     badgeBorder: 'border-[#D4AF37]/30',
-    description: 'Sovereign Syndicate. Earns 1% of referred investors monthly ROI. Unlocked with 10 active plan referrals.',
+    description: '5th Generation Syndicate Cap. Earns 1% of 5th generation referred investors monthly ROI.',
   },
 ];
 
@@ -172,19 +172,18 @@ export function computeClientReferralStats(
   const totalReferred = refereeList.length;
   const activePlanReferrals = refereeList.filter((r) => r.hasActivePlan).length;
 
-  // Level determination: unlocks every 2 active referrals with an active plan
-  const level = Math.min(5, Math.floor(activePlanReferrals / 2));
+  // Direct referrals earn Level 1 (10% of monthly ROI) immediately with 1st referral
+  const level = activePlanReferrals >= 1 ? 1 : 0;
   const levelRule =
     REFERRAL_LEVEL_RULES.find((r) => r.level === level) || REFERRAL_LEVEL_RULES[0];
 
-  const neededForNext = level < 5 ? (level + 1) * 2 : 10;
-  const plansRemainingForNext =
-    level < 5 ? Math.max(0, neededForNext - activePlanReferrals) : 0;
+  const neededForNext = activePlanReferrals === 0 ? 1 : 0;
+  const plansRemainingForNext = activePlanReferrals === 0 ? 1 : 0;
 
-  // Commission strictly the level-specific % of referee monthly ROI (15% payout)
+  // Direct referrals earn 10% of active referee monthly ROI
   const monthlyCommissionYield = refereeList.reduce((sum, r) => {
-    if (!r.hasActivePlan || levelRule.roiPct === 0) return sum;
-    return sum + (r.monthlyRoi * levelRule.roiPct) / 100;
+    if (!r.hasActivePlan) return sum;
+    return sum + (r.monthlyRoi * 10) / 100;
   }, 0);
 
   return {
