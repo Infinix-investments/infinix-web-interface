@@ -18,8 +18,11 @@ import {
   Unlock,
   ShieldCheck,
   AlertCircle,
+  AlertTriangle,
   X,
   UserCheck,
+  Link2,
+  ExternalLink,
 } from 'lucide-react';
 import { useAdmin } from '@/context/admin-context';
 import { ClientProfile } from '@/types/admin';
@@ -35,6 +38,7 @@ export function ReferralsView() {
     addMissedReferral,
     stats,
     setActiveTab,
+    setSelectedClientId: setAdminSelectedClientId,
   } = useAdmin();
 
   const [activeSubTab, setActiveSubTab] = useState<'direct' | 'levels'>('direct');
@@ -86,6 +90,39 @@ export function ReferralsView() {
   const totalReferralCapital = referrals
     .filter((r) => r.status === 'active')
     .reduce((sum, r) => sum + r.capitalAmount, 0);
+
+  // Clients without a valid sponsor (for quick fix / audit)
+  const unlinkedClients = useMemo(() => {
+    return clients.filter((c) => {
+      const refBy = (c.referredByCode || '').trim();
+      if (!refBy) return true;
+      const refByNorm = refBy.toUpperCase().replace(/^INF-?/, '');
+      const match = clients.some((p) => {
+        const pRef = (p.referralCode || '').toUpperCase().replace(/^INF-?/, '');
+        const pId = (p.clientId || p.id || '').toUpperCase();
+        return pRef === refByNorm || pId === refByNorm;
+      });
+      return !match;
+    });
+  }, [clients]);
+
+  const [levelFilterCategory, setLevelFilterCategory] = useState<'all' | 'unlocked' | 'locked' | 'unlinked'>('all');
+
+  const filteredSelectorClients = useMemo(() => {
+    const q = clientSearch.trim().toLowerCase();
+    return clients.filter((c) => {
+      if (levelFilterCategory === 'unlocked' && !c.isLevelIncomeUnlocked) return false;
+      if (levelFilterCategory === 'locked' && c.isLevelIncomeUnlocked) return false;
+      if (levelFilterCategory === 'unlinked' && !unlinkedClients.some((u) => u.id === c.id)) return false;
+      if (!q) return true;
+      const name = `${c.firstName} ${c.lastName}`.toLowerCase();
+      const id = (c.id || '').toLowerCase();
+      const ref = (c.referralCode || '').toLowerCase();
+      const email = (c.email || '').toLowerCase();
+      const phone = (c.phone || '').toLowerCase();
+      return name.includes(q) || id.includes(q) || ref.includes(q) || email.includes(q) || phone.includes(q);
+    });
+  }, [clients, clientSearch, levelFilterCategory, unlinkedClients]);
 
   // Active client for Level Income tab
   const activeLevelClient = useMemo(() => {
@@ -155,6 +192,16 @@ export function ReferralsView() {
     if (!missedRefereeId) return null;
     return clients.find((c) => c.id === missedRefereeId || c.clientId === missedRefereeId);
   }, [clients, missedRefereeId]);
+
+  const currentSponsorOfReferee = useMemo(() => {
+    if (!previewReferee || !previewReferee.referredByCode) return null;
+    const refCodeNorm = previewReferee.referredByCode.toUpperCase().replace(/^INF-?/, '');
+    return clients.find((c) => {
+      const pRef = (c.referralCode || '').toUpperCase().replace(/^INF-?/, '');
+      const pId = (c.clientId || c.id || '').toUpperCase();
+      return pRef === refCodeNorm || pId === refCodeNorm;
+    });
+  }, [previewReferee, clients]);
 
   return (
     <div className="space-y-6">
@@ -449,6 +496,83 @@ export function ReferralsView() {
          ========================================================================= */}
       {activeSubTab === 'levels' && (
         <div className="space-y-6">
+          {/* Diagnostic: Missing Referral Links Detected (Unlinked Clients) */}
+          {unlinkedClients.length > 0 && (
+            <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 shadow-xl space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-amber-300 text-sm">
+                      Missing Referral Links Detected ({unlinkedClients.length} Investors Without a Sponsor)
+                    </h4>
+                    <p className="text-[11px] text-amber-400/80 mt-0.5">
+                      These clients registered without a referral code or with an unresolved sponsor. Link them to start their direct commission and 5-tier level earnings.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-amber-500/20 bg-[#080C14]/90">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-amber-500/20 text-slate-400 text-[10px] uppercase font-bold bg-[#0D131F]">
+                      <th className="py-2.5 px-4">Investor</th>
+                      <th className="py-2.5 px-4">Contact</th>
+                      <th className="py-2.5 px-4">Plan & Capital</th>
+                      <th className="py-2.5 px-4">Current Code</th>
+                      <th className="py-2.5 px-4">Current Sponsor</th>
+                      <th className="py-2.5 px-4 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-amber-500/15">
+                    {unlinkedClients.map((c) => (
+                      <tr key={c.id} className="hover:bg-amber-500/5 transition-colors">
+                        <td className="py-2.5 px-4">
+                          <div className="font-bold text-white">{c.firstName} {c.lastName}</div>
+                          <div className="text-[10px] text-slate-400 font-mono">#{c.id}</div>
+                        </td>
+                        <td className="py-2.5 px-4 text-slate-300">
+                          <div>{c.email}</div>
+                          <div className="text-[10px] text-slate-400 font-mono">{c.phone || 'No phone'}</div>
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <div className="font-bold text-white">{formatINR(c.assignedPlanAmount || 0)}</div>
+                          <div className="text-[10px] text-slate-400">{c.assignedPlanName || 'Pending Plan'}</div>
+                        </td>
+                        <td className="py-2.5 px-4 font-mono text-[11px] text-[#D4AF37]">
+                          {c.referralCode || 'NONE'}
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <span className="px-2 py-0.5 rounded bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[10px] font-bold">
+                            {c.referredByCode || 'Unassigned'}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 text-right">
+                          <button
+                            onClick={() => {
+                              setMissedRefereeId(c.id);
+                              if (activeLevelClient && activeLevelClient.id !== c.id) {
+                                setMissedSponsorId(activeLevelClient.id);
+                              }
+                              setIsMissedModalOpen(true);
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#F59E0B] text-black font-extrabold text-xs transition-all shadow-md shadow-[#D4AF37]/20 hover:brightness-110 active:scale-95 inline-flex items-center gap-1.5"
+                          >
+                            <Link2 className="w-3.5 h-3.5" />
+                            <span>Assign Sponsor</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Investor Selector & Level Income Privilege Header */}
           <div className="p-6 rounded-2xl bg-[#0D131F] border border-[#1E293B] shadow-xl space-y-5">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#1E293B]">
@@ -461,23 +585,44 @@ export function ReferralsView() {
                 </h3>
               </div>
 
-              {/* Client Selector Dropdown */}
-              <div className="w-full md:w-72">
-                <select
-                  value={selectedClientId}
-                  onChange={(e) => setSelectedClientId(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-[#080C14] border border-[#1E293B] text-white text-xs font-bold focus:outline-none focus:border-[#D4AF37]"
-                >
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.firstName} {c.lastName} ({c.referralCode || c.id}) {c.isLevelIncomeUnlocked ? '⚡ [UNLOCKED]' : '🔒 [LOCKED]'}
-                    </option>
-                  ))}
-                </select>
+              {/* Search & Filtered Selector */}
+              <div className="w-full md:w-96 space-y-2">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search by name, ID, or referral code..."
+                    value={clientSearch}
+                    onChange={(e) => setClientSearch(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2 rounded-xl bg-[#080C14] border border-[#1E293B] text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-[#D4AF37]"
+                  />
+                  {clientSearch && (
+                    <button
+                      onClick={() => setClientSearch('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xs"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <select
+                    value={selectedClientId}
+                    onChange={(e) => setSelectedClientId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-[#080C14] border border-[#1E293B] text-white text-xs font-bold focus:outline-none focus:border-[#D4AF37]"
+                  >
+                    {filteredSelectorClients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.firstName} {c.lastName} ({c.referralCode || c.id}) {c.isLevelIncomeUnlocked ? '⚡ [UNLOCKED]' : '🔒 [LOCKED]'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
-            {/* Selected Investor Profile Card & Level Income Toggle Button */}
+            {/* Selected Investor Profile Card & Controls */}
             {activeLevelClient ? (
               <div className="p-5 rounded-xl bg-[#080C14] border border-[#1E293B] flex flex-col lg:flex-row lg:items-center justify-between gap-5">
                 <div className="flex items-center gap-4">
@@ -485,7 +630,7 @@ export function ReferralsView() {
                     {activeLevelClient.firstName.charAt(0)}
                   </div>
                   <div>
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-2.5 flex-wrap">
                       <h4 className="font-black text-white text-base">
                         {activeLevelClient.firstName} {activeLevelClient.lastName}
                       </h4>
@@ -504,20 +649,24 @@ export function ReferralsView() {
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-slate-400 mt-1 flex items-center gap-3">
+                    <div className="text-xs text-slate-400 mt-1 flex items-center gap-3 flex-wrap">
                       <span>ID: #{activeLevelClient.id}</span>
                       <span>{activeLevelClient.email}</span>
                       <span>{activeLevelClient.phone || 'No phone'}</span>
+                      <span className="text-slate-500">•</span>
+                      <span>
+                        Sponsor: <strong className="text-white">{activeLevelClient.referredByCode || 'None (Direct Root)'}</strong>
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                {/* The Master Toggle Button */}
-                <div className="flex items-center gap-3">
+                {/* Master Action Buttons for Selected Investor */}
+                <div className="flex items-center gap-2.5 flex-wrap">
                   <button
                     disabled={isTogglingLevelIncome}
                     onClick={handleToggleLevelIncome}
-                    className={`px-5 py-2.5 rounded-xl font-black text-xs transition-all flex items-center gap-2 shadow-lg disabled:opacity-50 ${
+                    className={`px-4 py-2 rounded-xl font-black text-xs transition-all flex items-center gap-2 shadow-lg disabled:opacity-50 ${
                       activeLevelClient.isLevelIncomeUnlocked
                         ? 'bg-[#1E293B] hover:bg-rose-950/60 border border-rose-500/40 text-rose-300'
                         : 'bg-[#D4AF37] hover:bg-[#b5952f] text-black shadow-[#D4AF37]/20'
@@ -525,15 +674,41 @@ export function ReferralsView() {
                   >
                     {activeLevelClient.isLevelIncomeUnlocked ? (
                       <>
-                        <Lock className="w-4 h-4 text-rose-400" />
+                        <Lock className="w-3.5 h-3.5 text-rose-400" />
                         <span>{isTogglingLevelIncome ? 'Locking...' : 'Lock Level Income'}</span>
                       </>
                     ) : (
                       <>
-                        <Unlock className="w-4 h-4" />
-                        <span>{isTogglingLevelIncome ? 'Unlocking...' : 'Unlock Level Income for Account'}</span>
+                        <Unlock className="w-3.5 h-3.5" />
+                        <span>{isTogglingLevelIncome ? 'Unlocking...' : 'Unlock Level Income'}</span>
                       </>
                     )}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setMissedSponsorId(activeLevelClient.id);
+                      setMissedRefereeId('');
+                      setIsMissedModalOpen(true);
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-[#141C2E] hover:bg-[#1E293B] border border-[#1E293B] hover:border-[#D4AF37]/40 text-slate-200 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5"
+                    title="Add a missed referral directly under this investor"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-[#D4AF37]" />
+                    <span>+ Add Downline Referral</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setMissedRefereeId(activeLevelClient.id);
+                      setMissedSponsorId('');
+                      setIsMissedModalOpen(true);
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-[#141C2E] hover:bg-[#1E293B] border border-[#1E293B] text-slate-300 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5"
+                    title="Change or fix the sponsor who referred this investor"
+                  >
+                    <Link2 className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Change Sponsor</span>
                   </button>
                 </div>
               </div>
@@ -593,15 +768,80 @@ export function ReferralsView() {
             )}
           </div>
 
-          {/* Vertical 5-Tier Level Network Tree */}
+          {/* Partner Chains Overview (The 5 Branches) */}
+          {levelNetwork && (
+            <div className="p-5 rounded-2xl bg-[#0D131F] border border-[#1E293B] space-y-3 shadow-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-extrabold text-white text-sm">
+                    Syndicate Partner Chains ({levelNetwork.levels[1].members.length} Active Branches)
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    When this investor is unlocked and refers partners, each direct referral initiates a partner chain (up to 5 generation levels deep).
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                {[1, 2, 3, 4, 5].map((idx) => {
+                  const partner = levelNetwork.levels[1].members[idx - 1];
+                  return (
+                    <div
+                      key={idx}
+                      className={`p-3.5 rounded-xl border transition-all ${
+                        partner
+                          ? 'bg-[#080C14] border-emerald-500/30'
+                          : 'bg-[#080C14]/40 border-dashed border-[#1E293B]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase text-slate-400">
+                          Chain #{idx}
+                        </span>
+                        {partner ? (
+                          <span className="px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-400 text-[9px] font-bold">
+                            Active
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-600 font-bold">
+                            Empty Slot
+                          </span>
+                        )}
+                      </div>
+
+                      {partner ? (
+                        <div className="mt-2">
+                          <div className="font-extrabold text-white text-xs truncate">
+                            {partner.name}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            #{partner.id}
+                          </div>
+                          <div className="text-[11px] font-bold text-emerald-400 mt-1">
+                            {formatINR(partner.planCapital)}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-3 text-[11px] text-slate-500 italic">
+                          Awaiting partner invite
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Vertical 5-Tier Level Network Hierarchy */}
           {levelNetwork && (
             <div className="space-y-4">
               <div className="px-1">
                 <h3 className="font-extrabold text-white text-base">
-                  5-Tier Generational Chain for {activeLevelClient?.firstName} {activeLevelClient?.lastName}
+                  5-Tier Generational Network for {activeLevelClient?.firstName} {activeLevelClient?.lastName}
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Level 1 reveals direct partner details (name, plan, capital, daily cut). Generations 2 to 5 protect investor privacy and display aggregate volume and yield.
+                  Full operator oversight across all 5 generations. Inspect members, verify downline daily ROI, and easily reassign or fix sponsor links if mistakes occurred.
                 </p>
               </div>
 
@@ -659,14 +899,14 @@ export function ReferralsView() {
                           </div>
                           <div className="text-[11px] text-slate-400 mt-0.5">
                             {lvl === 1
-                              ? 'Partners who enrolled directly with this sponsor'
+                              ? 'Partners enrolled directly under this investor'
                               : `Referrals introduced by Generation ${lvl - 1} partners`}
                           </div>
                         </div>
                       </div>
 
                       {/* Tier Stats Pill */}
-                      <div className="flex items-center gap-4 text-xs">
+                      <div className="flex items-center gap-4 text-xs flex-wrap">
                         <div>
                           <span className="text-slate-400">Members: </span>
                           <span className="font-bold text-white">{stat.totalMembers} ({stat.activeMembers} Active)</span>
@@ -682,88 +922,116 @@ export function ReferralsView() {
                       </div>
                     </div>
 
-                    {/* Level 1: Details visible */}
-                    {lvl === 1 ? (
-                      <div>
-                        {stat.members.length === 0 ? (
-                          <div className="py-6 text-center text-slate-500 text-xs">
-                            No direct partners enrolled under this investor yet. Use "Add Missed Referral" above to link partners.
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            {stat.members.map((member) => (
-                              <div
-                                key={member.id}
-                                className="p-3.5 rounded-xl bg-[#080C14] border border-[#1E293B] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                              >
-                                <div className="flex items-center gap-3">
-                                  <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold text-xs flex items-center justify-center">
-                                    {member.name.charAt(0)}
-                                  </div>
-                                  <div>
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-bold text-white text-xs">{member.name}</span>
-                                      <span className="text-[10px] text-slate-400 font-mono">#{member.id}</span>
-                                      {member.status === 'active' ? (
-                                        <span className="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[9px] font-bold">
-                                          Active Plan
-                                        </span>
-                                      ) : (
-                                        <span className="px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[9px] font-bold">
-                                          Pending Plan
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="text-[11px] text-slate-400 mt-0.5">
-                                      {member.planName} • {formatINR(member.planCapital)}
-                                    </div>
-                                  </div>
+                    {/* Member Roster for ALL 5 Levels */}
+                    <div>
+                      {stat.members.length === 0 ? (
+                        <div className="py-6 text-center text-slate-500 text-xs">
+                          {lvl === 1
+                            ? 'No direct partners enrolled under this investor yet. Use "+ Add Downline Referral" above to link a partner.'
+                            : `No Generation ${lvl} downline partners enrolled yet.`}
+                        </div>
+                      ) : (
+                        <div className="space-y-2.5">
+                          {stat.members.map((member) => (
+                            <div
+                              key={member.id}
+                              className="p-4 rounded-xl bg-[#080C14] border border-[#1E293B] hover:border-[#1E293B]/80 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all"
+                            >
+                              <div className="flex items-center gap-3.5">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm border ${badgeColor}`}>
+                                  {member.name.charAt(0)}
                                 </div>
-
-                                <div className="flex items-center gap-6 text-right">
-                                  <div>
-                                    <div className="text-[10px] text-slate-400 uppercase">Member Daily ROI</div>
-                                    <div className="font-bold text-white text-xs">
-                                      +{formatINR(member.dailyRoiAmount)}/day
-                                    </div>
+                                <div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-black text-white text-xs">{member.name}</span>
+                                    <span className="text-[10px] text-slate-400 font-mono">#{member.id}</span>
+                                    {member.status === 'active' ? (
+                                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold">
+                                        Active Plan
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[10px] font-bold">
+                                        Pending Plan
+                                      </span>
+                                    )}
+                                    <span className="text-[10px] text-slate-400 font-mono">
+                                      Introduced by: <strong className="text-white">{member.sponsorName || member.referredByCode || 'Unknown'}</strong>
+                                    </span>
                                   </div>
-                                  <div>
-                                    <div className="text-[10px] text-slate-400 uppercase">Sponsor's 10% Cut</div>
-                                    <div className="font-bold text-emerald-400 text-xs">
-                                      +{formatINR(member.yourDailyIncomeCut)}/day
-                                    </div>
+
+                                  <div className="text-xs text-slate-400 mt-1 flex items-center gap-3 flex-wrap">
+                                    <span className="font-semibold text-slate-300">
+                                      {member.planName} • <strong className="text-white">{formatINR(member.planCapital)}</strong>
+                                    </span>
+                                    <span>•</span>
+                                    <span>{member.email}</span>
+                                    {member.phone && <span>• {member.phone}</span>}
                                   </div>
                                 </div>
                               </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      /* Levels 2 to 5: Anonymous generation */
-                      <div className="p-4 rounded-xl bg-[#080C14] border border-[#1E293B] flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <ShieldCheck className="w-5 h-5 text-slate-400" />
-                          <div>
-                            <div className="text-xs font-bold text-white">
-                              Anonymous Generation ({stat.totalMembers} Investors)
-                            </div>
-                            <div className="text-[11px] text-slate-400 mt-0.5">
-                              Investor identities beyond Level 1 are protected. Sponsor earns {stat.levelPercent}% of this generation's active ROI.
-                            </div>
-                          </div>
-                        </div>
 
-                        <div className="flex items-center gap-4 text-xs font-bold">
-                          <span className="text-slate-300">
-                            Volume: <span className="text-white">{formatINR(stat.totalCapital)}</span>
-                          </span>
-                          <span className="text-emerald-400">
-                            Yield: +{formatINR(stat.dailyIncome)}/day
-                          </span>
+                              <div className="flex items-center gap-4 self-end md:self-auto">
+                                <div className="text-right">
+                                  <div className="text-[10px] text-slate-400 uppercase font-bold">
+                                    Daily Member ROI
+                                  </div>
+                                  <div className="font-bold text-white text-xs">
+                                    +{formatINR(member.dailyRoiAmount)}/day
+                                  </div>
+                                </div>
+
+                                <div className="text-right border-l border-[#1E293B] pl-4">
+                                  <div className="text-[10px] text-emerald-400 uppercase font-bold">
+                                    {stat.levelPercent}% Syndicate Cut
+                                  </div>
+                                  <div className="font-black text-emerald-400 text-xs">
+                                    +{formatINR(member.yourDailyIncomeCut)}/day
+                                  </div>
+                                </div>
+
+                                {/* Quick actions on member row */}
+                                <div className="flex items-center gap-1.5 border-l border-[#1E293B] pl-3">
+                                  <button
+                                    onClick={() => {
+                                      setMissedRefereeId(member.id);
+                                      setMissedSponsorId('');
+                                      setIsMissedModalOpen(true);
+                                    }}
+                                    className="px-2.5 py-1.5 rounded-lg bg-[#141C2E] hover:bg-[#1E293B] border border-[#1E293B] hover:border-[#D4AF37]/50 text-slate-300 hover:text-white text-[11px] font-bold transition-all flex items-center gap-1"
+                                    title="Change or fix the sponsor for this investor"
+                                  >
+                                    <Link2 className="w-3 h-3 text-[#D4AF37]" />
+                                    <span>Fix Sponsor</span>
+                                  </button>
+
+                                  <button
+                                    onClick={() => setSelectedClientId(member.id)}
+                                    className="px-2.5 py-1.5 rounded-lg bg-[#080C14] hover:bg-[#141C2E] border border-[#1E293B] text-slate-400 hover:text-white text-[11px] font-bold transition-all flex items-center gap-1"
+                                    title="Inspect this investor's downline tree"
+                                  >
+                                    <Layers className="w-3 h-3 text-blue-400" />
+                                    <span>Inspect</span>
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      if (setAdminSelectedClientId) {
+                                        setAdminSelectedClientId(member.id);
+                                      }
+                                      setActiveTab('clients');
+                                    }}
+                                    className="p-1.5 rounded-lg bg-[#080C14] hover:bg-[#141C2E] border border-[#1E293B] text-slate-400 hover:text-white transition-all"
+                                    title="Open client profile"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -773,16 +1041,16 @@ export function ReferralsView() {
       )}
 
       {/* =========================================================================
-          MODAL: ADD MISSED REFERRAL TO USER
+          MODAL: ADD MISSED REFERRAL / FIX SPONSOR
          ========================================================================= */}
       {isMissedModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-lg rounded-2xl bg-[#0D131F] border border-[#1E293B] p-6 shadow-2xl space-y-5">
             <div className="flex items-center justify-between border-b border-[#1E293B] pb-4">
               <div>
-                <h3 className="font-black text-white text-base">Add Missed Referral</h3>
+                <h3 className="font-black text-white text-base">Add or Fix Sponsor Link</h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Link an existing investor to their intended sponsor and immediately sync both Direct Referral & Level Income.
+                  Link or reassign an investor to their intended sponsor and immediately sync both Direct Referral & 5-Tier Level Income.
                 </p>
               </div>
               <button
@@ -794,10 +1062,38 @@ export function ReferralsView() {
             </div>
 
             <form onSubmit={handleSubmitMissedReferral} className="space-y-4">
+              {/* Referee Selector (The member whose sponsor is being set/changed) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                  1. Investor / Referee (Member Being Linked)
+                </label>
+                <select
+                  required
+                  value={missedRefereeId}
+                  onChange={(e) => setMissedRefereeId(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-[#080C14] border border-[#1E293B] text-white text-xs font-bold focus:outline-none focus:border-[#D4AF37]"
+                >
+                  <option value="">-- Select Investor to Link / Fix --</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.firstName} {c.lastName} ({c.id}) {c.referredByCode ? `[Current: ${c.referredByCode}]` : '[Unlinked]'} {c.assignedPlanAmount ? `• ${c.assignedPlanAmount} USDT` : ''}
+                    </option>
+                  ))}
+                </select>
+                {currentSponsorOfReferee && (
+                  <div className="text-[11px] text-amber-400 mt-1 flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>
+                      Currently sponsored by: <strong>{currentSponsorOfReferee.firstName} {currentSponsorOfReferee.lastName}</strong> ({currentSponsorOfReferee.referralCode})
+                    </span>
+                  </div>
+                )}
+              </div>
+
               {/* Sponsor Selector */}
               <div>
                 <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                  1. Sponsor / Upline Referrer
+                  2. Assign Sponsor / Upline Referrer
                 </label>
                 <select
                   required
@@ -806,31 +1102,16 @@ export function ReferralsView() {
                   className="w-full px-4 py-2.5 rounded-xl bg-[#080C14] border border-[#1E293B] text-white text-xs font-bold focus:outline-none focus:border-[#D4AF37]"
                 >
                   <option value="">-- Select Sponsor Investor --</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.firstName} {c.lastName} ({c.referralCode || c.id})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Missed Referee Selector */}
-              <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                  2. Missed Investor (Referee)
-                </label>
-                <select
-                  required
-                  value={missedRefereeId}
-                  onChange={(e) => setMissedRefereeId(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-[#080C14] border border-[#1E293B] text-white text-xs font-bold focus:outline-none focus:border-[#D4AF37]"
-                >
-                  <option value="">-- Select Missed Investor to Link --</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.firstName} {c.lastName} ({c.email}) {c.assignedPlanAmount ? `• ${c.assignedPlanAmount} USDT` : ''}
-                    </option>
-                  ))}
+                  <option value="unlink" className="text-rose-400 font-bold">
+                    ❌ [Unlink Sponsor / Set as Independent Root]
+                  </option>
+                  {clients
+                    .filter((c) => c.id !== missedRefereeId)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.firstName} {c.lastName} ({c.referralCode || c.id}) {c.isLevelIncomeUnlocked ? '⚡ [UNLOCKED]' : '🔒 [LOCKED]'}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -838,7 +1119,7 @@ export function ReferralsView() {
               {previewReferee && (
                 <div className="p-4 rounded-xl bg-[#080C14] border border-[#D4AF37]/30 space-y-2">
                   <div className="text-xs font-bold text-slate-300">
-                    Calculated Commission Preview
+                    Live Commission & Level Preview
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-slate-400">Investor Plan:</span>
@@ -846,18 +1127,26 @@ export function ReferralsView() {
                       {previewReferee.assignedPlanName || 'Pending Plan'} ({previewReferee.assignedPlanAmount || 0} USDT)
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-400">Direct 5% Cash Bonus:</span>
-                    <span className="font-extrabold text-emerald-400">
-                      +{formatINR(Math.round(Number(previewReferee.assignedPlanAmount || 0) * 0.05 * 100) / 100)} USDT
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-400">Level 1 Daily ROI:</span>
-                    <span className="font-extrabold text-[#D4AF37]">
-                      10% of their daily ROI (credited to sponsor upon level income unlock)
-                    </span>
-                  </div>
+                  {missedSponsorId === 'unlink' ? (
+                    <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-bold">
+                      ⚠️ This client will be unlinked from any sponsor and will become an independent root investor.
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-400">Direct 5% Cash Bonus:</span>
+                        <span className="font-extrabold text-emerald-400">
+                          +{formatINR(Math.round(Number(previewReferee.assignedPlanAmount || 0) * 0.05 * 100) / 100)} USDT
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-400">Level 1 Daily Cut:</span>
+                        <span className="font-extrabold text-[#D4AF37]">
+                          10% of their daily ROI (credited to sponsor upon level income unlock)
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
