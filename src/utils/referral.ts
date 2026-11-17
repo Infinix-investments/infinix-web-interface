@@ -200,3 +200,224 @@ export function computeClientReferralStats(
   };
 }
 
+export interface AdminLevelMember {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  referralCode?: string;
+  planName: string;
+  planCapital: number;
+  dailyRoiAmount: number;
+  yourDailyIncomeCut: number;
+  status: 'active' | 'pending';
+  joinedDate: string;
+  level: number;
+}
+
+export interface AdminLevelTierStats {
+  level: number;
+  levelPercent: number;
+  totalMembers: number;
+  activeMembers: number;
+  totalCapital: number;
+  dailyIncome: number;
+  totalAccruedIncome: number;
+  members: AdminLevelMember[];
+}
+
+export interface AdminLevelNetworkResult {
+  rootClient: ClientProfile;
+  isUnlocked: boolean;
+  levels: {
+    1: AdminLevelTierStats;
+    2: AdminLevelTierStats;
+    3: AdminLevelTierStats;
+    4: AdminLevelTierStats;
+    5: AdminLevelTierStats;
+  };
+  totalMembers: number;
+  totalActiveMembers: number;
+  totalCapital: number;
+  todayDailyIncome: number;
+  totalAccruedIncome: number;
+}
+
+export function calculateAdminLevelNetwork(
+  rootClient: ClientProfile,
+  allClients: ClientProfile[],
+  allReferrals: ReferralRecord[]
+): AdminLevelNetworkResult {
+  const isUnlocked = Boolean(rootClient.isLevelIncomeUnlocked);
+
+  const cleanCode = (c?: string) =>
+    (c || '').toString().trim().toUpperCase().replace(/^[#@\s]+/, '').replace(/^INF-?/, '');
+
+  const rootCodeNorm = cleanCode(
+    rootClient.referralCode || `INF-${rootClient.firstName.toUpperCase()}${rootClient.id.replace(/\D/g, '') || '01'}`
+  );
+
+  const tierRates: Record<1 | 2 | 3 | 4 | 5, number> = {
+    1: 10,
+    2: 5,
+    3: 3,
+    4: 2,
+    5: 1,
+  };
+
+  const emptyTier = (lvl: 1 | 2 | 3 | 4 | 5): AdminLevelTierStats => ({
+    level: lvl,
+    levelPercent: tierRates[lvl],
+    totalMembers: 0,
+    activeMembers: 0,
+    totalCapital: 0,
+    dailyIncome: 0,
+    totalAccruedIncome: 0,
+    members: [],
+  });
+
+  const result: AdminLevelNetworkResult = {
+    rootClient,
+    isUnlocked,
+    levels: {
+      1: emptyTier(1),
+      2: emptyTier(2),
+      3: emptyTier(3),
+      4: emptyTier(4),
+      5: emptyTier(5),
+    },
+    totalMembers: 0,
+    totalActiveMembers: 0,
+    totalCapital: 0,
+    todayDailyIncome: 0,
+    totalAccruedIncome: 0,
+  };
+
+  if (!rootCodeNorm) return result;
+
+  // Code alias resolver: maps any ID or Code variant to canonical code
+  const codeResolver = new Map<string, string>();
+  for (const c of allClients) {
+    const canonical = cleanCode(c.referralCode || `INF-${c.firstName.toUpperCase()}101`);
+    if (!canonical) continue;
+    codeResolver.set(canonical, canonical);
+    const cId = cleanCode(c.clientId || c.id);
+    if (cId) codeResolver.set(cId, canonical);
+    const cEmail = (c.email || '').trim().toUpperCase();
+    if (cEmail) codeResolver.set(cEmail, canonical);
+  }
+
+  const effectiveRoot = codeResolver.get(rootCodeNorm) || rootCodeNorm;
+
+  // Build parent -> children map
+  const parentMap = new Map<string, ClientProfile[]>();
+  for (const c of allClients) {
+    if (c.id === rootClient.id) continue;
+    const parent = cleanCode(c.referredByCode);
+    if (!parent) continue;
+    const effectiveParent = codeResolver.get(parent) || parent;
+    const list = parentMap.get(effectiveParent) || [];
+    list.push(c);
+    parentMap.set(effectiveParent, list);
+  }
+
+  // Also include referrals matching referrerId
+  for (const r of allReferrals) {
+    const parentCode = cleanCode(r.referrerCode);
+    const refereeId = r.refereeId;
+    if (!parentCode || !refereeId) continue;
+    const effectiveParent = codeResolver.get(parentCode) || parentCode;
+    const existing = parentMap.get(effectiveParent) || [];
+    if (!existing.some((c) => c.id === refereeId || c.clientId === refereeId)) {
+      const match = allClients.find((c) => c.id === refereeId || c.clientId === refereeId);
+      if (match) {
+        existing.push(match);
+        parentMap.set(effectiveParent, existing);
+      }
+    }
+  }
+
+  const visited = new Set<string>();
+  visited.add(rootClient.id);
+  if (rootClient.clientId) visited.add(rootClient.clientId);
+
+  let currentParents = [effectiveRoot];
+
+  for (let lvl = 1; lvl <= 5; lvl++) {
+    const currentLvl = lvl as 1 | 2 | 3 | 4 | 5;
+    const rate = tierRates[currentLvl];
+    const tierStat = result.levels[currentLvl];
+    const nextParents: string[] = [];
+
+    for (const parentCode of currentParents) {
+      const children = parentMap.get(parentCode) || [];
+
+      for (const child of children) {
+        if (visited.has(child.id)) continue;
+        visited.add(child.id);
+        if (child.clientId) visited.add(child.clientId);
+
+        const childCode = cleanCode(child.referralCode);
+        if (childCode) nextParents.push(childCode);
+
+        const cap = Number(child.assignedPlanAmount || 0);
+        const isActive = child.assignedPlanStatus === 'active' && cap > 0;
+        const is20M = (child.assignedPlanName || '').includes('20');
+        const dailyRatePct = is20M ? 0.33 : 0.5;
+        const memberDailyRoi = isActive ? (cap * dailyRatePct) / 100 : 0;
+        const yourCut = isActive ? (memberDailyRoi * rate) / 100 : 0;
+
+        // Completed days approximation
+        const startDate = child.assignedPlanStartDate || child.joinedDate || '2026-11-01';
+        const startMs = new Date(startDate).getTime();
+        const nowMs = Date.now();
+        const daysElapsed = Math.max(0, Math.floor((nowMs - startMs) / (1000 * 60 * 60 * 24)));
+        const totalAccrued = yourCut * daysElapsed;
+
+        const member: AdminLevelMember = {
+          id: child.id,
+          name: `${child.firstName} ${child.lastName}`.trim(),
+          email: child.email,
+          phone: child.phone,
+          referralCode: child.referralCode,
+          planName: child.assignedPlanName || (isActive ? 'Active Investment Plan' : 'Pending Plan'),
+          planCapital: cap,
+          dailyRoiAmount: Math.round(memberDailyRoi * 100) / 100,
+          yourDailyIncomeCut: Math.round(yourCut * 100) / 100,
+          status: isActive ? 'active' : 'pending',
+          joinedDate: child.joinedDate || startDate,
+          level: currentLvl,
+        };
+
+        tierStat.members.push(member);
+        tierStat.totalMembers++;
+        if (isActive) {
+          tierStat.activeMembers++;
+          tierStat.totalCapital += cap;
+          if (isUnlocked) {
+            tierStat.dailyIncome += yourCut;
+            tierStat.totalAccruedIncome += totalAccrued;
+          }
+        }
+      }
+    }
+
+    tierStat.dailyIncome = Math.round(tierStat.dailyIncome * 100) / 100;
+    tierStat.totalAccruedIncome = Math.round(tierStat.totalAccruedIncome * 100) / 100;
+
+    result.totalMembers += tierStat.totalMembers;
+    result.totalActiveMembers += tierStat.activeMembers;
+    result.totalCapital += tierStat.totalCapital;
+    result.todayDailyIncome += tierStat.dailyIncome;
+    result.totalAccruedIncome += tierStat.totalAccruedIncome;
+
+    currentParents = nextParents;
+    if (currentParents.length === 0) break;
+  }
+
+  result.todayDailyIncome = Math.round(result.todayDailyIncome * 100) / 100;
+  result.totalAccruedIncome = Math.round(result.totalAccruedIncome * 100) / 100;
+
+  return result;
+}
+

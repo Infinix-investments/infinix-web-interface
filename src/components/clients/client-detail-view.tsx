@@ -21,6 +21,7 @@ import {
   CreditCard,
   Edit2,
   FileText,
+  Lock,
   Mail,
   Phone,
   PlusCircle,
@@ -29,6 +30,7 @@ import {
   ShieldCheck,
   Trash2,
   TrendingUp,
+  Unlock,
   User,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
@@ -94,6 +96,7 @@ export function ClientDetailView({
     verifyClientPhone,
     updateClientProfile,
     linkClientReferrer,
+    toggleClientLevelIncome,
     revokeClientPlan,
     revokeClientPlanInstance,
     approveWithdrawal,
@@ -165,6 +168,46 @@ export function ClientDetailView({
     );
   }, [clients, client, referrals]);
 
+  // Sponsor linking state
+  const [isLinkingSponsor, setIsLinkingSponsor] = useState(false);
+  const [sponsorInput, setSponsorInput] = useState("");
+  const [isSubmittingSponsor, setIsSubmittingSponsor] = useState(false);
+
+  // Find who referred this client (Sponsor)
+  const sponsorClient = useMemo(() => {
+    if (!client || !client.referredByCode) return null;
+    const cleanRef = client.referredByCode.trim().toLowerCase();
+    return (
+      clients.find(
+        (c) =>
+          c.referralCode?.toLowerCase() === cleanRef ||
+          c.id?.toLowerCase() === cleanRef ||
+          c.clientId?.toLowerCase() === cleanRef ||
+          (c.email && c.email.toLowerCase() === cleanRef) ||
+          (c.phone && c.phone.replace(/\D/g, "") === cleanRef.replace(/\D/g, ""))
+      ) || null
+    );
+  }, [client, clients]);
+
+  const handleLinkSponsor = async () => {
+    if (!client || !sponsorInput.trim()) return;
+    setIsSubmittingSponsor(true);
+    try {
+      const res = await linkClientReferrer(client.id, sponsorInput.trim());
+      if (res.success) {
+        showToast(res.message || "Sponsor linked successfully!");
+        setIsLinkingSponsor(false);
+        setSponsorInput("");
+      } else {
+        showToast(res.message || "Failed to link sponsor");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to link sponsor");
+    } finally {
+      setIsSubmittingSponsor(false);
+    }
+  };
+
   // Get all withdrawals for this client
   const clientWithdrawals = useMemo(() => {
     if (!client) return [];
@@ -196,6 +239,25 @@ export function ClientDetailView({
   const currentLevelRule =
     REFERRAL_LEVEL_RULES.find((r) => r.level === referralStats.level) ||
     REFERRAL_LEVEL_RULES[0];
+
+  const [isTogglingLevel, setIsTogglingLevel] = useState(false);
+
+  const handleToggleClientLevel = async () => {
+    if (!client) return;
+    setIsTogglingLevel(true);
+    try {
+      const res = await toggleClientLevelIncome(client.id);
+      if (res.success) {
+        showToast(res.message);
+      } else {
+        showToast(res.message || "Failed to update level income status.");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to update level income status.");
+    } finally {
+      setIsTogglingLevel(false);
+    }
+  };
 
   const formatINR = (val?: number) => {
     return formatUSDT(val);
@@ -1036,6 +1098,168 @@ export function ClientDetailView({
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Sponsor / Introduced By Card */}
+          <div className="p-6 rounded-2xl bg-[#0D131F] border border-[#1E293B] shadow-xl">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#1E293B]">
+              <div>
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  Sponsor / Introduced By
+                </div>
+                <div className="text-sm text-slate-300 mt-0.5">
+                  The partner or upline sponsor who introduced {client?.firstName} {client?.lastName} to INFINIX
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSponsorInput(client?.referredByCode || "");
+                  setIsLinkingSponsor(!isLinkingSponsor);
+                }}
+                className="px-3.5 py-2 rounded-xl bg-[#141C2E] hover:bg-[#1E293B] border border-[#1E293B] text-white text-xs font-bold transition-all flex items-center gap-1.5 self-start md:self-auto"
+              >
+                <Edit2 className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <span>{client?.referredByCode ? "Change Sponsor" : "Assign Sponsor"}</span>
+              </button>
+            </div>
+
+            {isLinkingSponsor ? (
+              <div className="mt-4 p-4 rounded-xl bg-[#080C14] border border-[#D4AF37]/30 space-y-3">
+                <div className="text-xs font-bold text-slate-300">
+                  Link / Re-assign Sponsor
+                </div>
+                <div className="text-xs text-slate-400">
+                  Enter Sponsor's Referral Code (e.g. INF-IRSHAD7829), Client ID (e.g. c-9102), Email, or Phone.
+                </div>
+                <div className="flex flex-col sm:flex-row items-center gap-2">
+                  <input
+                    type="text"
+                    value={sponsorInput}
+                    onChange={(e) => setSponsorInput(e.target.value)}
+                    placeholder="e.g. INF-IRSHAD7829 or c-9102 or irshadnizami92@gmail.com"
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-[#0D131F] border border-[#1E293B] text-white text-sm focus:outline-none focus:border-[#D4AF37] placeholder:text-slate-500 w-full"
+                  />
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      disabled={isSubmittingSponsor || !sponsorInput.trim()}
+                      onClick={handleLinkSponsor}
+                      className="px-4 py-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#b5952f] disabled:opacity-50 text-black text-xs font-black transition-all flex items-center justify-center gap-1.5 flex-1 sm:flex-initial whitespace-nowrap"
+                    >
+                      {isSubmittingSponsor ? "Saving..." : "Confirm Link"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsLinkingSponsor(false)}
+                      className="px-3.5 py-2.5 rounded-xl bg-[#141C2E] hover:bg-[#1E293B] text-slate-400 text-xs font-bold transition-all"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                {client?.referredByCode ? (
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] font-bold">
+                      {sponsorClient?.firstName ? sponsorClient.firstName.charAt(0) : "S"}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-white text-sm">
+                          {sponsorClient ? `${sponsorClient.firstName} ${sponsorClient.lastName}` : "Direct Sponsor"}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-[#141C2E] border border-[#1E293B] font-mono text-xs text-[#D4AF37] font-bold">
+                          {client.referredByCode}
+                        </span>
+                        {sponsorClient && (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold">
+                            Verified Investor
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-3">
+                        {sponsorClient?.clientId && <span>ID: #{sponsorClient.clientId}</span>}
+                        {sponsorClient?.email && <span>{sponsorClient.email}</span>}
+                        {sponsorClient?.phone && <span>{sponsorClient.phone}</span>}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 text-slate-400 text-sm">
+                    <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
+                    <span>No sponsor linked to this investor yet (Direct / Organic Signup).</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 5-Tier Level Income Authorization & Privilege Card */}
+          <div className="p-6 rounded-2xl bg-[#0D131F] border border-[#1E293B] shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div
+                className={`p-3 rounded-xl border ${
+                  client?.isLevelIncomeUnlocked
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                    : "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                }`}
+              >
+                {client?.isLevelIncomeUnlocked ? (
+                  <Unlock className="w-5 h-5" />
+                ) : (
+                  <Lock className="w-5 h-5" />
+                )}
+              </div>
+              <div>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <span className="font-extrabold text-white text-sm">
+                    5-Tier Level Income Privilege
+                  </span>
+                  {client?.isLevelIncomeUnlocked ? (
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 text-xs font-black">
+                      UNLOCKED & ACTIVE
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-400 text-xs font-black">
+                      LOCKED (ADMIN AUTHORIZATION REQUIRED)
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-slate-400 mt-1">
+                  {client?.isLevelIncomeUnlocked
+                    ? "This investor is authorized to earn 10%, 5%, 3%, 2%, 1% recurring daily yield across 5 downline tiers."
+                    : "Level income will not generate until unlocked by Chief Wealth Admin. Direct referrals (5% bonus) remain active."}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={isTogglingLevel}
+              onClick={handleToggleClientLevel}
+              className={`px-4 py-2.5 rounded-xl font-black text-xs transition-all flex items-center gap-2 shadow-lg disabled:opacity-50 self-start md:self-auto ${
+                client?.isLevelIncomeUnlocked
+                  ? "bg-[#1E293B] hover:bg-rose-950/60 border border-rose-500/40 text-rose-300"
+                  : "bg-[#D4AF37] hover:bg-[#b5952f] text-black shadow-[#D4AF37]/20"
+              }`}
+            >
+              {client?.isLevelIncomeUnlocked ? (
+                <>
+                  <Lock className="w-3.5 h-3.5 text-rose-400" />
+                  <span>{isTogglingLevel ? "Locking..." : "Lock Level Income"}</span>
+                </>
+              ) : (
+                <>
+                  <Unlock className="w-3.5 h-3.5" />
+                  <span>
+                    {isTogglingLevel ? "Unlocking..." : "Unlock Level Income"}
+                  </span>
+                </>
+              )}
+            </button>
           </div>
 
           {/* Referred Clients Directory Table */}
