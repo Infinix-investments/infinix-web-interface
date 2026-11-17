@@ -81,6 +81,27 @@ class ApiClient {
     });
   }
 
+  async linkReferrer(clientId: string, referrerCode: string, adminName?: string) {
+    return this.request<any>(`/clients/${clientId}/link-referrer`, {
+      method: 'POST',
+      body: JSON.stringify({ referrerCode, adminName }),
+    });
+  }
+
+  async toggleLevelIncome(clientId: string, unlocked?: boolean, adminName?: string) {
+    return this.request<any>(`/clients/${clientId}/toggle-level-income`, {
+      method: 'POST',
+      body: JSON.stringify({ unlocked, adminName }),
+    });
+  }
+
+  async addMissedReferral(sponsorIdOrCode: string, refereeIdOrCode: string, adminName?: string) {
+    return this.request<any>(`/clients/add-missed-referral`, {
+      method: 'POST',
+      body: JSON.stringify({ sponsorIdOrCode, refereeIdOrCode, adminName }),
+    });
+  }
+
   async assignPlan(
     clientId: string,
     planId: string,

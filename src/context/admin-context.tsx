@@ -100,6 +100,18 @@ interface AdminContextType {
     allocatedAmount?: number;
     referredByCode?: string;
   }) => { success: boolean; message: string; clientId: string };
+  linkClientReferrer: (
+    clientId: string,
+    referrerCode: string,
+  ) => Promise<{ success: boolean; message: string }>;
+  toggleClientLevelIncome: (
+    clientId: string,
+    unlocked?: boolean,
+  ) => Promise<{ success: boolean; message: string }>;
+  addMissedReferral: (
+    sponsorIdOrCode: string,
+    refereeIdOrCode: string,
+  ) => Promise<{ success: boolean; message: string }>;
   stats: {
     totalAum: number;
     activeInvestorsCount: number;
@@ -993,6 +1005,129 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     };
   };
 
+  const linkClientReferrer = async (
+    clientId: string,
+    referrerCode: string,
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      const res = await api.linkReferrer(
+        clientId,
+        referrerCode,
+        "Chief Wealth Admin (Altaf)",
+      );
+      if (res.success) {
+        const [cRes, rRes] = await Promise.all([
+          api.getClients(),
+          api.getReferrals(),
+        ]);
+        if (cRes.success && Array.isArray(cRes.data)) {
+          setClients(cRes.data);
+        }
+        if (rRes.success && Array.isArray(rRes.data)) {
+          setReferrals(rRes.data);
+        }
+        addAuditLog(
+          "Referral Link Updated",
+          "client_verification",
+          res.message || `Linked client ${clientId} to sponsor ${referrerCode}`,
+        );
+        return {
+          success: true,
+          message: res.message || "Sponsor linked successfully.",
+        };
+      }
+      return {
+        success: false,
+        message: res.error || "Failed to link sponsor.",
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err.message || "Failed to link sponsor.",
+      };
+    }
+  };
+
+  const toggleClientLevelIncome = async (
+    clientId: string,
+    unlocked?: boolean,
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      const res = await api.toggleLevelIncome(
+        clientId,
+        unlocked,
+        "Chief Wealth Admin (Altaf)",
+      );
+      if (res.success) {
+        const cRes = await api.getClients();
+        if (cRes.success && Array.isArray(cRes.data)) {
+          setClients(cRes.data);
+        }
+        addAuditLog(
+          res.data?.isLevelIncomeUnlocked ? "Level Income Unlocked" : "Level Income Locked",
+          "client_verification",
+          res.message || `Level income updated for client ${clientId}`,
+        );
+        return {
+          success: true,
+          message: res.message || "Level income status updated successfully.",
+        };
+      }
+      return {
+        success: false,
+        message: res.error || "Failed to toggle level income status.",
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err.message || "Failed to toggle level income status.",
+      };
+    }
+  };
+
+  const addMissedReferral = async (
+    sponsorIdOrCode: string,
+    refereeIdOrCode: string,
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      const res = await api.addMissedReferral(
+        sponsorIdOrCode,
+        refereeIdOrCode,
+        "Chief Wealth Admin (Altaf)",
+      );
+      if (res.success) {
+        const [cRes, rRes] = await Promise.all([
+          api.getClients(),
+          api.getReferrals(),
+        ]);
+        if (cRes.success && Array.isArray(cRes.data)) {
+          setClients(cRes.data);
+        }
+        if (rRes.success && Array.isArray(rRes.data)) {
+          setReferrals(rRes.data);
+        }
+        addAuditLog(
+          "Missed Referral Added",
+          "client_verification",
+          res.message || `Linked referee ${refereeIdOrCode} to sponsor ${sponsorIdOrCode}`,
+        );
+        return {
+          success: true,
+          message: res.message || "Missed referral linked and synced successfully.",
+        };
+      }
+      return {
+        success: false,
+        message: res.error || "Failed to link missed referral.",
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err.message || "Failed to link missed referral.",
+      };
+    }
+  };
+
   // COMPUTED STATS
   const stats = useMemo(() => {
     const totalAum = clients.reduce(
@@ -1074,6 +1209,9 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         disburseReferralCommission,
         updateReferralTier,
         addNewClient,
+        linkClientReferrer,
+        toggleClientLevelIncome,
+        addMissedReferral,
         stats,
       }}
     >

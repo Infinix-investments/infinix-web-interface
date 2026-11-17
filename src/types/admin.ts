@@ -43,6 +43,8 @@ export interface ClientProfile {
   notes: string;
   referralCode?: string;
   referredByCode?: string;
+  isLevelIncomeUnlocked?: boolean;
+  levelIncomeUnlockedAt?: string;
   paymentReference?: string;
   paymentVerified?: boolean;
 }
