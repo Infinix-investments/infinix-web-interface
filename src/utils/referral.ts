@@ -121,11 +121,15 @@ export function computeClientReferralStats(
       refereeClient?.assignedPlanStatus === 'active' ||
       ref.capitalAmount > 0;
     const capital = refereeClient?.assignedPlanAmount ?? (ref.capitalAmount || 0);
-    const monthlyRoi = (capital * 15) / 100;
     const planName =
       refereeClient?.assignedPlanName ||
       ref.planName ||
       (hasActive ? 'INFINIX 14-Month Wealth Accelerator' : 'Pending Plan Allocation');
+    const planLower = planName.toLowerCase();
+    const is20M = planLower.includes('20') || (refereeClient?.assignedPlanId || '').includes('7441');
+    const is6M = planLower.includes('6');
+    const monthlyRoiPct = is20M || is6M ? 5.0 : 7.5;
+    const monthlyRoi = (capital * monthlyRoiPct) / 100;
 
     const key = ref.refereeId || ref.refereeEmail || ref.id;
     refereeMap.set(key, {
@@ -150,7 +154,15 @@ export function computeClientReferralStats(
     if (!refereeMap.has(key) && !refereeMap.has(c.email)) {
       const hasActive = c.assignedPlanStatus === 'active';
       const capital = c.assignedPlanAmount || 0;
-      const monthlyRoi = (capital * 15) / 100;
+      const planName =
+        c.assignedPlanName ||
+        (hasActive ? 'INFINIX 14-Month Wealth Accelerator' : 'Pending Plan Allocation');
+      const planLower = planName.toLowerCase();
+      const is20M = planLower.includes('20') || (c.assignedPlanId || '').includes('7441');
+      const is6M = planLower.includes('6');
+      const monthlyRoiPct = is20M || is6M ? 5.0 : 7.5;
+      const monthlyRoi = (capital * monthlyRoiPct) / 100;
+
       refereeMap.set(key, {
         id: c.id,
         name: `${c.firstName} ${c.lastName}`,
@@ -158,9 +170,7 @@ export function computeClientReferralStats(
         phone: c.phone,
         joinedDate: c.joinedDate,
         hasActivePlan: hasActive,
-        planName:
-          c.assignedPlanName ||
-          (hasActive ? 'INFINIX 14-Month Wealth Accelerator' : 'Pending Plan Allocation'),
+        planName,
         capital,
         monthlyRoi,
         status: hasActive ? 'active' : 'pending',
@@ -364,17 +374,30 @@ export function calculateAdminLevelNetwork(
 
         const cap = Number(child.assignedPlanAmount || 0);
         const isActive = child.assignedPlanStatus === 'active' && cap > 0;
-        const is20M = (child.assignedPlanName || '').includes('20');
-        const dailyRatePct = is20M ? 0.33 : 0.5;
-        const memberDailyRoi = isActive ? (cap * dailyRatePct) / 100 : 0;
+        const planNameLower = (child.assignedPlanName || '').toLowerCase();
+        const is20M = planNameLower.includes('20') || (child.assignedPlanId || '').includes('7441');
+        const is6M = planNameLower.includes('6');
+        const durationMonths = is20M ? 20 : is6M ? 6 : 14;
+
+        // Business logic:
+        // 1. Total profit = Total return - Initial investment
+        //    (20M: 200% - 100% = 100% net profit; 14M: 7.5% monthly net profit; 6M: 5% monthly)
+        // 2. Monthly ROI = Total profit / Duration in months (5% for 20M/6M; 7.5% for 14M)
+        // 3. Daily ROI = Monthly ROI / 30
+        // 4. Daily cut = Daily ROI * Level%
+        const monthlyRoiPct = is20M || is6M ? 5.0 : 7.5;
+        const monthlyRoiAmount = (cap * monthlyRoiPct) / 100;
+        const memberDailyRoi = isActive ? monthlyRoiAmount / 30 : 0;
         const yourCut = isActive ? (memberDailyRoi * rate) / 100 : 0;
 
-        // Completed days approximation
+        // Completed days capped by contractual duration
         const startDate = child.assignedPlanStartDate || child.joinedDate || '2026-11-01';
         const startMs = new Date(startDate).getTime();
         const nowMs = Date.now();
         const daysElapsed = Math.max(0, Math.floor((nowMs - startMs) / (1000 * 60 * 60 * 24)));
-        const totalAccrued = yourCut * daysElapsed;
+        const maxDays = durationMonths * 30;
+        const completedDays = Math.min(maxDays, daysElapsed);
+        const totalAccrued = yourCut * completedDays;
 
         const sponsorObj = allClients.find(
           (c) =>
@@ -395,8 +418,8 @@ export function calculateAdminLevelNetwork(
           sponsorName,
           planName: child.assignedPlanName || (isActive ? 'Active Investment Plan' : 'Pending Plan'),
           planCapital: cap,
-          dailyRoiAmount: Math.round(memberDailyRoi * 100) / 100,
-          yourDailyIncomeCut: Math.round(yourCut * 100) / 100,
+          dailyRoiAmount: Math.round(memberDailyRoi * 10000) / 10000,
+          yourDailyIncomeCut: Math.round(yourCut * 10000) / 10000,
           status: isActive ? 'active' : 'pending',
           joinedDate: child.joinedDate || startDate,
           level: currentLvl,

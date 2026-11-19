@@ -24,6 +24,7 @@ import {
   Lock,
   Mail,
   Phone,
+  Plus,
   PlusCircle,
   Save,
   Share2,
@@ -32,6 +33,9 @@ import {
   TrendingUp,
   Unlock,
   User,
+  UserCheck,
+  UserPlus,
+  X,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
@@ -52,8 +56,8 @@ const isPhoneAdded = (phone?: string) =>
 function calculateCompletedDays(startDateStr?: string | Date): number {
   if (!startDateStr) return 0;
   let startYear: number, startMonth: number, startDay: number;
-  if (typeof startDateStr === 'string') {
-    const cleanStr = startDateStr.split('T')[0];
+  if (typeof startDateStr === "string") {
+    const cleanStr = startDateStr.split("T")[0];
     const parts = cleanStr.split(/[-/]/);
     if (parts.length >= 3) {
       startYear = parseInt(parts[0], 10);
@@ -76,7 +80,15 @@ function calculateCompletedDays(startDateStr?: string | Date): number {
 
   const now = new Date();
   const startMidnight = new Date(startYear, startMonth, startDay, 0, 0, 0, 0);
-  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const todayMidnight = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    0,
+    0,
+    0,
+    0,
+  );
   const diffMs = todayMidnight.getTime() - startMidnight.getTime();
   if (diffMs <= 0) return 0;
   return Math.floor(diffMs / (1000 * 60 * 60 * 24));
@@ -97,6 +109,7 @@ export function ClientDetailView({
     updateClientProfile,
     linkClientReferrer,
     toggleClientLevelIncome,
+    addMissedReferral,
     revokeClientPlan,
     revokeClientPlanInstance,
     approveWithdrawal,
@@ -115,6 +128,12 @@ export function ClientDetailView({
   const [toast, setToast] = useState("");
   const [customUtr, setCustomUtr] = useState("");
   const [approvingWdId, setApprovingWdId] = useState<string | null>(null);
+
+  // Add Missed Referral under this client modal state
+  const [isAddMissedModalOpen, setIsAddMissedModalOpen] = useState(false);
+  const [selectedMissedRefereeId, setSelectedMissedRefereeId] = useState("");
+  const [refereeSearch, setRefereeSearch] = useState("");
+  const [isSubmittingMissed, setIsSubmittingMissed] = useState(false);
 
   // Edit Profile / Notes State
   const [isEditingNotes, setIsEditingNotes] = useState(false);
@@ -164,7 +183,9 @@ export function ClientDetailView({
       (c) =>
         c.id !== client.id &&
         ((client.referralCode && c.referredByCode === client.referralCode) ||
-          referrals.some((r) => r.referrerId === client.id && r.refereeId === c.id)),
+          referrals.some(
+            (r) => r.referrerId === client.id && r.refereeId === c.id,
+          )),
     );
   }, [clients, client, referrals]);
 
@@ -184,7 +205,8 @@ export function ClientDetailView({
           c.id?.toLowerCase() === cleanRef ||
           c.clientId?.toLowerCase() === cleanRef ||
           (c.email && c.email.toLowerCase() === cleanRef) ||
-          (c.phone && c.phone.replace(/\D/g, "") === cleanRef.replace(/\D/g, ""))
+          (c.phone &&
+            c.phone.replace(/\D/g, "") === cleanRef.replace(/\D/g, "")),
       ) || null
     );
   }, [client, clients]);
@@ -207,6 +229,64 @@ export function ClientDetailView({
       setIsSubmittingSponsor(false);
     }
   };
+
+  const handleAddMissedReferralSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!client || !selectedMissedRefereeId) {
+      showToast("Please select an investor to link as a missed referral.");
+      return;
+    }
+    if (selectedMissedRefereeId === client.id) {
+      showToast("A client cannot be their own sponsor.");
+      return;
+    }
+
+    setIsSubmittingMissed(true);
+    try {
+      const res = await addMissedReferral(client.id, selectedMissedRefereeId);
+      if (res.success) {
+        showToast(res.message);
+        setIsAddMissedModalOpen(false);
+        setSelectedMissedRefereeId("");
+      } else {
+        showToast(res.message || "Failed to link missed referral.");
+      }
+    } catch (err: any) {
+      showToast(err?.message || "Failed to link missed referral.");
+    } finally {
+      setIsSubmittingMissed(false);
+    }
+  };
+
+  const previewMissedReferee = useMemo(() => {
+    if (!selectedMissedRefereeId) return null;
+    return clients.find(
+      (c) =>
+        c.id === selectedMissedRefereeId ||
+        c.clientId === selectedMissedRefereeId,
+    );
+  }, [clients, selectedMissedRefereeId]);
+
+  const availableReferees = useMemo(() => {
+    if (!client) return [];
+    const q = refereeSearch.trim().toLowerCase();
+    return clients.filter((c) => {
+      if (c.id === client.id || c.clientId === client.id) return false;
+      if (!q) return true;
+      const name = `${c.firstName} ${c.lastName}`.toLowerCase();
+      const id = (c.id || "").toLowerCase();
+      const email = (c.email || "").toLowerCase();
+      const phone = (c.phone || "").toLowerCase();
+      const code = (c.referralCode || "").toLowerCase();
+      return (
+        name.includes(q) ||
+        id.includes(q) ||
+        email.includes(q) ||
+        phone.includes(q) ||
+        code.includes(q)
+      );
+    });
+  }, [clients, client, refereeSearch]);
 
   // Get all withdrawals for this client
   const clientWithdrawals = useMemo(() => {
@@ -316,7 +396,11 @@ export function ClientDetailView({
     }
   };
 
-  const handleRevokeSingleContract = (contractId: string, planName: string, capital: number) => {
+  const handleRevokeSingleContract = (
+    contractId: string,
+    planName: string,
+    capital: number,
+  ) => {
     if (!client) return;
     if (
       confirm(
@@ -398,7 +482,8 @@ export function ClientDetailView({
             durationMonths: duration,
             dailyReturnPct: dailyRate,
             monthlyReturnPct: monthlyRate,
-            grossTotalReturnPct: p.grossTotalReturnPct || monthlyRate * duration,
+            grossTotalReturnPct:
+              p.grossTotalReturnPct || monthlyRate * duration,
             dailyProfit,
             accruedProfit,
             monthlyPayout,
@@ -416,7 +501,9 @@ export function ClientDetailView({
       }
     }
 
-    const fallbackCap = Number(client.assignedPlanAmount || client.totalAum || 0);
+    const fallbackCap = Number(
+      client.assignedPlanAmount || client.totalAum || 0,
+    );
     if (fallbackCap > 0) {
       const assignedPlan = plans.find(
         (p) =>
@@ -465,9 +552,10 @@ export function ClientDetailView({
     return [];
   }, [client, plans]);
 
-  const totalCapital = displayPlans.length > 0
-    ? displayPlans.reduce((sum, p) => sum + (Number(p.capitalAmount) || 0), 0)
-    : (Number(client?.assignedPlanAmount) || Number(client?.totalAum) || 0);
+  const totalCapital =
+    displayPlans.length > 0
+      ? displayPlans.reduce((sum, p) => sum + (Number(p.capitalAmount) || 0), 0)
+      : Number(client?.assignedPlanAmount) || Number(client?.totalAum) || 0;
 
   const totalAccruedProfit = displayPlans.reduce(
     (sum, p) => sum + (Number(p.accruedProfit) || 0),
@@ -569,6 +657,19 @@ export function ClientDetailView({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedMissedRefereeId("");
+              setIsAddMissedModalOpen(true);
+            }}
+            className="px-3.5 py-2 rounded-xl bg-[#141C2E] hover:bg-[#1E293B] border border-[#1E293B] hover:border-[#D4AF37]/50 text-slate-200 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+            title={`Link a missed referral under ${client.firstName}`}
+          >
+            <UserPlus className="w-3.5 h-3.5 text-[#D4AF37]" />
+            <span>Add Missed Referral</span>
+          </button>
+
           {client.assignedPlanStatus === "active" ? (
             <button
               onClick={handleRevokePlan}
@@ -603,8 +704,8 @@ export function ClientDetailView({
           <div className="flex items-start gap-4">
             <div className="relative">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#1E293B] to-[#0D131F] border-2 border-[#D4AF37] flex items-center justify-center text-white font-extrabold text-xl shadow-xl shadow-[#D4AF37]/10">
-                {(client.firstName?.[0] || 'I').toUpperCase()}
-                {(client.lastName?.[0] || '').toUpperCase()}
+                {(client.firstName?.[0] || "I").toUpperCase()}
+                {(client.lastName?.[0] || "").toUpperCase()}
               </div>
               <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 border-2 border-[#080C14] flex items-center justify-center text-black text-[10px] font-bold">
                 ✓
@@ -1108,7 +1209,8 @@ export function ClientDetailView({
                   Sponsor / Introduced By
                 </div>
                 <div className="text-sm text-slate-300 mt-0.5">
-                  The partner or upline sponsor who introduced {client?.firstName} {client?.lastName} to INFINIX
+                  The partner or upline sponsor who introduced{" "}
+                  {client?.firstName} {client?.lastName} to INFINIX
                 </div>
               </div>
               <button
@@ -1120,7 +1222,9 @@ export function ClientDetailView({
                 className="px-3.5 py-2 rounded-xl bg-[#141C2E] hover:bg-[#1E293B] border border-[#1E293B] text-white text-xs font-bold transition-all flex items-center gap-1.5 self-start md:self-auto"
               >
                 <Edit2 className="w-3.5 h-3.5 text-[#D4AF37]" />
-                <span>{client?.referredByCode ? "Change Sponsor" : "Assign Sponsor"}</span>
+                <span>
+                  {client?.referredByCode ? "Change Sponsor" : "Assign Sponsor"}
+                </span>
               </button>
             </div>
 
@@ -1130,7 +1234,8 @@ export function ClientDetailView({
                   Link / Re-assign Sponsor
                 </div>
                 <div className="text-xs text-slate-400">
-                  Enter Sponsor's Referral Code (e.g. INF-IRSHAD7829), Client ID (e.g. c-9102), Email, or Phone.
+                  Enter Sponsor's Referral Code (e.g. INF-IRSHAD7829), Client ID
+                  (e.g. c-9102), Email, or Phone.
                 </div>
                 <div className="flex flex-col sm:flex-row items-center gap-2">
                   <input
@@ -1164,12 +1269,16 @@ export function ClientDetailView({
                 {client?.referredByCode ? (
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] font-bold">
-                      {sponsorClient?.firstName ? sponsorClient.firstName.charAt(0) : "S"}
+                      {sponsorClient?.firstName
+                        ? sponsorClient.firstName.charAt(0)
+                        : "S"}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-white text-sm">
-                          {sponsorClient ? `${sponsorClient.firstName} ${sponsorClient.lastName}` : "Direct Sponsor"}
+                          {sponsorClient
+                            ? `${sponsorClient.firstName} ${sponsorClient.lastName}`
+                            : "Direct Sponsor"}
                         </span>
                         <span className="px-2 py-0.5 rounded-md bg-[#141C2E] border border-[#1E293B] font-mono text-xs text-[#D4AF37] font-bold">
                           {client.referredByCode}
@@ -1181,16 +1290,25 @@ export function ClientDetailView({
                         )}
                       </div>
                       <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-3">
-                        {sponsorClient?.clientId && <span>ID: #{sponsorClient.clientId}</span>}
-                        {sponsorClient?.email && <span>{sponsorClient.email}</span>}
-                        {sponsorClient?.phone && <span>{sponsorClient.phone}</span>}
+                        {sponsorClient?.clientId && (
+                          <span>ID: #{sponsorClient.clientId}</span>
+                        )}
+                        {sponsorClient?.email && (
+                          <span>{sponsorClient.email}</span>
+                        )}
+                        {sponsorClient?.phone && (
+                          <span>{sponsorClient.phone}</span>
+                        )}
                       </div>
                     </div>
                   </div>
                 ) : (
                   <div className="flex items-center gap-3 text-slate-400 text-sm">
                     <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
-                    <span>No sponsor linked to this investor yet (Direct / Organic Signup).</span>
+                    <span>
+                      No sponsor linked to this investor yet (Direct / Organic
+                      Signup).
+                    </span>
                   </div>
                 )}
               </div>
@@ -1249,7 +1367,9 @@ export function ClientDetailView({
               {client?.isLevelIncomeUnlocked ? (
                 <>
                   <Lock className="w-3.5 h-3.5 text-rose-400" />
-                  <span>{isTogglingLevel ? "Locking..." : "Lock Level Income"}</span>
+                  <span>
+                    {isTogglingLevel ? "Locking..." : "Lock Level Income"}
+                  </span>
                 </>
               ) : (
                 <>
@@ -1264,7 +1384,7 @@ export function ClientDetailView({
 
           {/* Referred Clients Directory Table */}
           <div className="rounded-2xl bg-[#0D131F] border border-[#1E293B] overflow-hidden shadow-xl">
-            <div className="p-4 border-b border-[#1E293B] flex items-center justify-between">
+            <div className="p-4 border-b border-[#1E293B] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h4 className="font-bold text-white text-sm">
                   Direct Downline Partners
@@ -1274,9 +1394,22 @@ export function ClientDetailView({
                   {referralStats.referralCode}
                 </p>
               </div>
-              <span className="px-2.5 py-1 rounded-lg bg-[#141C2E] text-slate-300 font-bold text-xs border border-[#1E293B]">
-                {referredClients.length} Members
-              </span>
+              <div className="flex items-center gap-2.5">
+                <span className="px-2.5 py-1 rounded-lg bg-[#141C2E] text-slate-300 font-bold text-xs border border-[#1E293B]">
+                  {referredClients.length} Members
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedMissedRefereeId("");
+                    setIsAddMissedModalOpen(true);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#F59E0B] text-black font-extrabold text-xs transition-all shadow-md shadow-[#D4AF37]/20 hover:brightness-110 active:scale-95 flex items-center gap-1.5"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Add Missed Referral</span>
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -1296,10 +1429,23 @@ export function ClientDetailView({
                     <tr>
                       <td
                         colSpan={6}
-                        className="py-12 text-center text-slate-500"
+                        className="py-12 text-center text-slate-500 space-y-3"
                       >
-                        No downline investors registered under code{" "}
-                        {referralStats.referralCode} yet.
+                        <p>
+                          No downline investors registered under code{" "}
+                          {referralStats.referralCode} yet.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedMissedRefereeId("");
+                            setIsAddMissedModalOpen(true);
+                          }}
+                          className="px-3.5 py-2 rounded-xl bg-[#D4AF37] hover:bg-[#b5952f] text-black font-extrabold text-xs transition-all inline-flex items-center gap-1.5 shadow-md shadow-[#D4AF37]/20"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add Missed Referral for {client.firstName}</span>
+                        </button>
                       </td>
                     </tr>
                   ) : (
@@ -1762,6 +1908,131 @@ export function ClientDetailView({
                 </div>
               ))
             )}
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL: ADD MISSED REFERRAL UNDER THIS CLIENT
+         ========================================================================= */}
+      {isAddMissedModalOpen && client && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-lg rounded-2xl bg-[#0D131F] border border-[#1E293B] p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-[#1E293B] pb-4">
+              <div>
+                <h3 className="font-black text-white text-base">Add Missed Referral</h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Link an investor directly under {client.firstName} {client.lastName} ({referralStats.referralCode}).
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddMissedModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddMissedReferralSubmit} className="space-y-4">
+              {/* Sponsor (Locked to this client) */}
+              <div className="p-3.5 rounded-xl bg-[#080C14] border border-[#1E293B]">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Sponsor / Upline Partner (Fixed)
+                </div>
+                <div className="font-extrabold text-white text-sm mt-0.5 flex items-center gap-2 flex-wrap">
+                  <span>{client.firstName} {client.lastName}</span>
+                  <span className="px-2 py-0.5 rounded bg-[#141C2E] border border-[#1E293B] text-[#D4AF37] font-mono text-xs font-bold">
+                    {referralStats.referralCode}
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-mono">#{client.id}</span>
+                </div>
+              </div>
+
+              {/* Referee Selector */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Select Missed Investor (Referee)
+                </label>
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    placeholder="Search investor by name, ID, or email..."
+                    value={refereeSearch}
+                    onChange={(e) => setRefereeSearch(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-[#080C14] border border-[#1E293B] text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-[#D4AF37]"
+                  />
+                  <select
+                    required
+                    value={selectedMissedRefereeId}
+                    onChange={(e) => setSelectedMissedRefereeId(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#080C14] border border-[#1E293B] text-white text-xs font-bold focus:outline-none focus:border-[#D4AF37]"
+                  >
+                    <option value="">-- Choose Missed Investor to Link --</option>
+                    {availableReferees.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.firstName} {c.lastName} ({c.id}) {c.referredByCode ? `[Current: ${c.referredByCode}]` : '[Unlinked]'} {c.assignedPlanAmount ? `• ${c.assignedPlanAmount} USDT` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {previewMissedReferee?.referredByCode && (
+                  <div className="text-[11px] text-amber-400 mt-1.5 flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>
+                      Notice: Currently linked to sponsor <strong>{previewMissedReferee.referredByCode}</strong>. Linking will reassign them under {client.firstName}.
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Preview Box */}
+              {previewMissedReferee && (
+                <div className="p-4 rounded-xl bg-[#080C14] border border-[#D4AF37]/30 space-y-2">
+                  <div className="text-xs font-bold text-slate-300">
+                    Calculated Commission Preview
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400">Investor Plan:</span>
+                    <span className="font-bold text-white">
+                      {previewMissedReferee.assignedPlanName || 'Pending Plan'} ({previewMissedReferee.assignedPlanAmount || 0} USDT)
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400">Direct 5% Cash Bonus:</span>
+                    <span className="font-extrabold text-emerald-400">
+                      +{formatINR(Math.round(Number(previewMissedReferee.assignedPlanAmount || 0) * 0.05 * 100) / 100)} USDT
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400">Level 1 Daily Cut:</span>
+                    <span className="font-extrabold text-[#D4AF37]">
+                      10% of their daily ROI (credited to {client.firstName} upon level income unlock)
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#1E293B]">
+                <button
+                  type="button"
+                  onClick={() => setIsAddMissedModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-[#141C2E] text-slate-400 hover:text-white text-xs font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingMissed || !selectedMissedRefereeId}
+                  className="px-5 py-2 rounded-xl bg-[#D4AF37] hover:bg-[#b5952f] disabled:opacity-50 text-black text-xs font-black transition-all flex items-center gap-2"
+                >
+                  <UserCheck className="w-4 h-4" />
+                  <span>{isSubmittingMissed ? 'Syncing...' : `Confirm & Link under ${client.firstName}`}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
