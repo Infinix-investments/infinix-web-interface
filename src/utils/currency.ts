@@ -1,17 +1,31 @@
 /**
  * Formats a numeric value into USDT display string.
- * Keeps exact decimals (up to specified precision, default 2 for fractional, or 0 if whole integer).
- * Does NOT round up fractional USDT values like 1.65 to 2!
+ * Keeps exact decimals without rounding off fractional USDT values.
  */
-export function formatUSDT(val?: number | null, maxDecimals: number = 2): string {
+export function formatUSDT(val?: number | null, maxDecimals?: number): string {
   if (val === undefined || val === null || isNaN(val)) return '—';
 
-  // Format with Intl.NumberFormat to avoid rounding up to whole numbers
+  const absVal = Math.abs(val);
+  const sign = val < 0 ? '-' : '';
+
+  let minDp = Number.isInteger(absVal) ? 0 : 2;
+  let maxDp = maxDecimals !== undefined ? maxDecimals : 2;
+
+  if (maxDecimals === undefined) {
+    const str = absVal.toString();
+    const decimalPart = str.split('.')[1] || '';
+    if (decimalPart.length > 2) {
+      maxDp = Math.min(6, Math.max(4, decimalPart.length));
+    }
+  }
+
   return (
+    sign +
     new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: Number.isInteger(val) ? 0 : 2,
-      maximumFractionDigits: maxDecimals,
-    }).format(val) + ' USDT'
+      minimumFractionDigits: minDp,
+      maximumFractionDigits: maxDp,
+    }).format(absVal) +
+    ' USDT'
   );
 }
 
