@@ -418,8 +418,8 @@ export function calculateAdminLevelNetwork(
           sponsorName,
           planName: child.assignedPlanName || (isActive ? 'Active Investment Plan' : 'Pending Plan'),
           planCapital: cap,
-          dailyRoiAmount: Math.round(memberDailyRoi * 10000) / 10000,
-          yourDailyIncomeCut: Math.round(yourCut * 10000) / 10000,
+          dailyRoiAmount: memberDailyRoi,
+          yourDailyIncomeCut: yourCut,
           status: isActive ? 'active' : 'pending',
           joinedDate: child.joinedDate || startDate,
           level: currentLvl,
@@ -438,9 +438,6 @@ export function calculateAdminLevelNetwork(
       }
     }
 
-    tierStat.dailyIncome = Math.round(tierStat.dailyIncome * 100) / 100;
-    tierStat.totalAccruedIncome = Math.round(tierStat.totalAccruedIncome * 100) / 100;
-
     result.totalMembers += tierStat.totalMembers;
     result.totalActiveMembers += tierStat.activeMembers;
     result.totalCapital += tierStat.totalCapital;
@@ -450,9 +447,6 @@ export function calculateAdminLevelNetwork(
     currentParents = nextParents;
     if (currentParents.length === 0) break;
   }
-
-  result.todayDailyIncome = Math.round(result.todayDailyIncome * 100) / 100;
-  result.totalAccruedIncome = Math.round(result.totalAccruedIncome * 100) / 100;
 
   return result;
 }
