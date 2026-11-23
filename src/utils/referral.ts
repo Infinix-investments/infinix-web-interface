@@ -263,11 +263,12 @@ export function calculateAdminLevelNetwork(
   const isUnlocked = Boolean(rootClient.isLevelIncomeUnlocked);
 
   const cleanCode = (c?: string) =>
-    (c || '').toString().trim().toUpperCase().replace(/^[#@\s]+/, '').replace(/^INF-?/, '');
+    (c || '').toString().trim().toUpperCase().replace(/^[#@\s]+/, '').replace(/(STANDARD|VIP|PRIME|ELITE|INSTITUTIONAL|GROWTH|SOVEREIGN)$/i, '').replace(/^INF-?/, '');
 
-  const rootCodeNorm = cleanCode(
-    rootClient.referralCode || `INF-${rootClient.firstName.toUpperCase()}${rootClient.id.replace(/\D/g, '') || '01'}`
-  );
+  const rootRawCode =
+    rootClient.referralCode ||
+    (rootClient.firstName ? `INF-${rootClient.firstName.toUpperCase()}101` : rootClient.id || rootClient.clientId || '');
+  const rootCodeNorm = cleanCode(rootRawCode);
 
   const tierRates: Record<1 | 2 | 3 | 4 | 5, number> = {
     1: 10,
@@ -310,7 +311,7 @@ export function calculateAdminLevelNetwork(
   // Code alias resolver: maps any ID or Code variant to canonical code
   const codeResolver = new Map<string, string>();
   for (const c of allClients) {
-    const canonical = cleanCode(c.referralCode || `INF-${c.firstName.toUpperCase()}101`);
+    const canonical = cleanCode(c.referralCode || (c.firstName ? `INF-${c.firstName.toUpperCase()}101` : c.clientId || c.id));
     if (!canonical) continue;
     codeResolver.set(canonical, canonical);
     const cId = cleanCode(c.clientId || c.id);
@@ -324,7 +325,7 @@ export function calculateAdminLevelNetwork(
   // Build parent -> children map
   const parentMap = new Map<string, ClientProfile[]>();
   for (const c of allClients) {
-    if (c.id === rootClient.id) continue;
+    if (c.id === rootClient.id || (rootClient.clientId && c.clientId === rootClient.clientId)) continue;
     const parent = cleanCode(c.referredByCode);
     if (!parent) continue;
     const effectiveParent = codeResolver.get(parent) || parent;
@@ -333,10 +334,10 @@ export function calculateAdminLevelNetwork(
     parentMap.set(effectiveParent, list);
   }
 
-  // Also include referrals matching referrerId
+  // Also include referrals matching referrerId or referrerCode
   for (const r of allReferrals) {
-    const parentCode = cleanCode(r.referrerCode);
-    const refereeId = r.refereeId;
+    const parentCode = cleanCode(r.referrerCode || r.referrerId);
+    const refereeId = r.refereeId || (r as any).id;
     if (!parentCode || !refereeId) continue;
     const effectiveParent = codeResolver.get(parentCode) || parentCode;
     const existing = parentMap.get(effectiveParent) || [];
@@ -344,6 +345,33 @@ export function calculateAdminLevelNetwork(
       const match = allClients.find((c) => c.id === refereeId || c.clientId === refereeId);
       if (match) {
         existing.push(match);
+        parentMap.set(effectiveParent, existing);
+      } else if (Number(r.capitalAmount || 0) > 0 || r.status === 'active') {
+        const cap = Number(r.capitalAmount || 0);
+        const virtualReferee: ClientProfile = {
+          id: refereeId,
+          clientId: refereeId,
+          firstName: (r.refereeName || 'Investor').split(' ')[0],
+          lastName: (r.refereeName || 'Partner').split(' ').slice(1).join(' ') || 'Partner',
+          email: r.refereeEmail || '',
+          phone: r.refereePhone || '',
+          isPhoneVerified: true,
+          kycStatus: 'verified',
+          assignedPlanId: 'plan-14m-15pct',
+          assignedPlanName: r.planName || '14-Month 15% Return Accelerator',
+          assignedPlanAmount: cap,
+          assignedPlanStartDate: r.dateJoined || '2026-01-01',
+          assignedPlanStatus: (r.status === 'active' || cap > 0) ? 'active' : 'pending_assignment',
+          currentMonthIndex: 1,
+          currentMonthWithdrawn: false,
+          bankAccount: '',
+          totalAum: cap,
+          joinedDate: r.dateJoined || '2026-01-01',
+          notes: 'Referral ledger record',
+          referralCode: cleanCode((r as any).referralCode || `INF-${refereeId}`),
+          referredByCode: parentCode,
+        };
+        existing.push(virtualReferee);
         parentMap.set(effectiveParent, existing);
       }
     }
@@ -354,6 +382,8 @@ export function calculateAdminLevelNetwork(
   if (rootClient.clientId) visited.add(rootClient.clientId);
 
   let currentParents = [effectiveRoot];
+  if (rootClient.clientId) currentParents.push(cleanCode(rootClient.clientId));
+  if (rootClient.id) currentParents.push(cleanCode(rootClient.id));
 
   for (let lvl = 1; lvl <= 5; lvl++) {
     const currentLvl = lvl as 1 | 2 | 3 | 4 | 5;
@@ -369,35 +399,76 @@ export function calculateAdminLevelNetwork(
         visited.add(child.id);
         if (child.clientId) visited.add(child.clientId);
 
-        const childCode = cleanCode(child.referralCode);
-        if (childCode) nextParents.push(childCode);
+        const rawChildCode = child.referralCode || (child.firstName ? `INF-${child.firstName.toUpperCase()}101` : '');
+        const childCode = cleanCode(rawChildCode);
+        if (childCode) {
+          nextParents.push(childCode);
+          const canonicalChild = codeResolver.get(childCode);
+          if (canonicalChild && canonicalChild !== childCode) nextParents.push(canonicalChild);
+        }
+        if (child.clientId) nextParents.push(cleanCode(child.clientId));
+        if (child.id) nextParents.push(cleanCode(child.id));
 
-        const cap = Number(child.assignedPlanAmount || 0);
-        const isActive = child.assignedPlanStatus === 'active' && cap > 0;
-        const planNameLower = (child.assignedPlanName || '').toLowerCase();
-        const is20M = planNameLower.includes('20') || (child.assignedPlanId || '').includes('7441');
-        const is6M = planNameLower.includes('6');
-        const durationMonths = is20M ? 20 : is6M ? 6 : 14;
+        // Compute active plans & capital
+        let cap = Number(child.assignedPlanAmount || 0);
+        const activePlansList = Array.isArray(child.activePlans) && child.activePlans.length > 0
+          ? child.activePlans.filter((p) => (p.status || 'active') === 'active')
+          : [];
 
-        // Business logic:
-        // 1. Total profit = Total return - Initial investment
-        //    (20M: 200% - 100% = 100% net profit; 14M: 7.5% monthly net profit; 6M: 5% monthly)
-        // 2. Monthly ROI = Total profit / Duration in months (5% for 20M/6M; 7.5% for 14M)
-        // 3. Daily ROI = Monthly ROI / 30
-        // 4. Daily cut = Daily ROI * Level%
-        const monthlyRoiPct = is20M || is6M ? 5.0 : 7.5;
-        const monthlyRoiAmount = (cap * monthlyRoiPct) / 100;
-        const memberDailyRoi = isActive ? monthlyRoiAmount / 30 : 0;
-        const yourCut = isActive ? (memberDailyRoi * rate) / 100 : 0;
+        if (cap === 0 && activePlansList.length > 0) {
+          cap = activePlansList.reduce((sum, p) => sum + (Number(p.capitalAmount) || 0), 0);
+        }
 
-        // Completed days capped by contractual duration
-        const startDate = child.assignedPlanStartDate || child.joinedDate || '2026-11-01';
-        const startMs = new Date(startDate).getTime();
-        const nowMs = Date.now();
-        const daysElapsed = Math.max(0, Math.floor((nowMs - startMs) / (1000 * 60 * 60 * 24)));
-        const maxDays = durationMonths * 30;
-        const completedDays = Math.min(maxDays, daysElapsed);
-        const totalAccrued = yourCut * completedDays;
+        const isActive = (child.assignedPlanStatus === 'active' || activePlansList.length > 0) && cap > 0;
+
+        let memberDailyRoi = 0;
+        let memberAccruedIncome = 0;
+        let memberCompletedDays = 0;
+
+        if (isActive) {
+          if (activePlansList.length > 0) {
+            for (const p of activePlansList) {
+              const pCap = Number(p.capitalAmount || 0);
+              const pName = (p.planName || '').toLowerCase();
+              const is20M = pName.includes('20') || (p.planId || '').includes('7441');
+              const is6M = pName.includes('6');
+              const durationMonths = p.durationMonths || (is20M ? 20 : is6M ? 6 : 14);
+              const monthlyRoiPct = is20M || is6M ? 5.0 : 7.5;
+              const pDailyRoi = (pCap * (monthlyRoiPct / 100)) / 30;
+              memberDailyRoi += pDailyRoi;
+
+              const pStart = p.startDate || child.assignedPlanStartDate || child.joinedDate || '2026-01-01';
+              const startMs = new Date(pStart).getTime();
+              const nowMs = Date.now();
+              const daysElapsed = Math.max(0, Math.floor((nowMs - startMs) / (1000 * 60 * 60 * 24)));
+              const maxDays = durationMonths * 30;
+              const pDays = Math.min(maxDays, daysElapsed);
+              if (pDays > memberCompletedDays) memberCompletedDays = pDays;
+
+              const pDailyCut = (pDailyRoi * rate) / 100;
+              memberAccruedIncome += pDailyCut * pDays;
+            }
+          } else {
+            const planNameLower = (child.assignedPlanName || '').toLowerCase();
+            const is20M = planNameLower.includes('20') || (child.assignedPlanId || '').includes('7441');
+            const is6M = planNameLower.includes('6');
+            const durationMonths = is20M ? 20 : is6M ? 6 : 14;
+            const monthlyRoiPct = is20M || is6M ? 5.0 : 7.5;
+            memberDailyRoi = (cap * (monthlyRoiPct / 100)) / 30;
+
+            const startDate = child.assignedPlanStartDate || child.joinedDate || '2026-01-01';
+            const startMs = new Date(startDate).getTime();
+            const nowMs = Date.now();
+            const daysElapsed = Math.max(0, Math.floor((nowMs - startMs) / (1000 * 60 * 60 * 24)));
+            const maxDays = durationMonths * 30;
+            memberCompletedDays = Math.min(maxDays, daysElapsed);
+
+            const yourCut = (memberDailyRoi * rate) / 100;
+            memberAccruedIncome = yourCut * memberCompletedDays;
+          }
+        }
+
+        const yourDailyCut = (memberDailyRoi * rate) / 100;
 
         const sponsorObj = allClients.find(
           (c) =>
@@ -419,9 +490,9 @@ export function calculateAdminLevelNetwork(
           planName: child.assignedPlanName || (isActive ? 'Active Investment Plan' : 'Pending Plan'),
           planCapital: cap,
           dailyRoiAmount: memberDailyRoi,
-          yourDailyIncomeCut: yourCut,
+          yourDailyIncomeCut: yourDailyCut,
           status: isActive ? 'active' : 'pending',
-          joinedDate: child.joinedDate || startDate,
+          joinedDate: child.joinedDate || child.assignedPlanStartDate || '2026-01-01',
           level: currentLvl,
         };
 
@@ -431,8 +502,8 @@ export function calculateAdminLevelNetwork(
           tierStat.activeMembers++;
           tierStat.totalCapital += cap;
           if (isUnlocked) {
-            tierStat.dailyIncome += yourCut;
-            tierStat.totalAccruedIncome += totalAccrued;
+            tierStat.dailyIncome += yourDailyCut;
+            tierStat.totalAccruedIncome += memberAccruedIncome;
           }
         }
       }
