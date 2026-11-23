@@ -5,6 +5,7 @@ import { ClientProfile } from "@/types/admin";
 import { formatUSDT } from "@/utils/currency";
 import {
   computeClientReferralStats,
+  calculateAdminLevelNetwork,
   REFERRAL_LEVEL_RULES,
 } from "@/utils/referral";
 import {
@@ -175,6 +176,19 @@ export function ClientDetailView({
     }
     return computeClientReferralStats(client, clients, referrals);
   }, [client, clients, referrals]);
+
+  // Compute live 5-Tier Level Network for this client
+  const levelNetwork = useMemo(() => {
+    if (!client) return null;
+    return calculateAdminLevelNetwork(client, clients, referrals);
+  }, [client, clients, referrals]);
+
+  const levelIncomeAccrued = client?.isLevelIncomeUnlocked
+    ? (levelNetwork?.totalAccruedIncome || 0)
+    : 0;
+  const levelIncomeDaily = client?.isLevelIncomeUnlocked
+    ? (levelNetwork?.todayDailyIncome || 0)
+    : 0;
 
   // Direct referee client profiles
   const referredClients = useMemo(() => {
@@ -566,16 +580,16 @@ export function ClientDetailView({
     0,
   );
 
-  // Referral total earned
+  // Referral direct commission total earned
   const totalReferralBonus =
     referralStats.totalEarnedCommissions ||
     referralStats.monthlyCommissionYield * 5;
 
-  // Available to withdraw: Accrued Profit + Referral Bonus - Settled Disbursed
+  // Available to withdraw: Accrued Profit + Referral Bonus + Level Income - Settled Disbursed
   const availableToWithdraw = Math.max(
     0,
     Math.round(
-      (totalAccruedProfit + totalReferralBonus - totalDisbursedAmount) * 100,
+      (totalAccruedProfit + totalReferralBonus + levelIncomeAccrued - totalDisbursedAmount) * 100,
     ) / 100,
   );
 
@@ -824,8 +838,8 @@ export function ClientDetailView({
         </div>
       </div>
 
-      {/* 6 Executive Financial Metric Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      {/* 7 Executive Financial Metric Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
         {/* Card 1: Active Capital */}
         <div className="p-4 rounded-2xl bg-[#0D131F] border border-[#1E293B] space-y-1 shadow-lg">
           <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
@@ -886,20 +900,46 @@ export function ClientDetailView({
             {formatINR(availableToWithdraw)}
           </div>
           <div className="text-[10px] text-emerald-400 font-semibold">
-            Net available yield
+            {levelIncomeAccrued > 0 ? "Includes Plan + Direct + Level" : "Net available yield"}
           </div>
         </div>
 
-        {/* Card 6: Referral Bonus */}
+        {/* Card 6: Direct Referral Bonus */}
         <div className="p-4 rounded-2xl bg-[#0D131F] border border-[#1E293B] space-y-1 shadow-lg">
           <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-            Referral Bonus
+            Direct Referral
           </div>
           <div className="text-lg font-black text-purple-400">
             +{formatINR(totalReferralBonus)}
           </div>
           <div className="text-[10px] text-slate-400">
             {referralStats.totalReferred} Direct Referees
+          </div>
+        </div>
+
+        {/* Card 7: 5-Tier Level Income */}
+        <div className={`p-4 rounded-2xl bg-[#0D131F] border space-y-1 shadow-lg ${
+          client?.isLevelIncomeUnlocked ? "border-emerald-500/40 shadow-emerald-500/5" : "border-[#1E293B]"
+        }`}>
+          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+            <span>Level Income</span>
+            {client?.isLevelIncomeUnlocked ? (
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-extrabold border border-emerald-500/30">
+                ACTIVE
+              </span>
+            ) : (
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-extrabold border border-amber-500/30">
+                LOCKED
+              </span>
+            )}
+          </div>
+          <div className={`text-lg font-black ${client?.isLevelIncomeUnlocked ? "text-emerald-400" : "text-slate-500"}`}>
+            +{formatINR(levelIncomeAccrued)}
+          </div>
+          <div className="text-[10px] text-slate-400">
+            {client?.isLevelIncomeUnlocked
+              ? `+${formatINR(levelIncomeDaily)}/d across ${levelNetwork?.totalActiveMembers || 0} active`
+              : "Unlock to credit past yield"}
           </div>
         </div>
       </div>
@@ -1381,6 +1421,190 @@ export function ClientDetailView({
               )}
             </button>
           </div>
+
+          {/* 5-Tier Level Network Performance & Accumulated Past Earnings Strip */}
+          {levelNetwork && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="p-4 rounded-2xl bg-[#0D131F] border border-[#1E293B] shadow-lg">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Today&apos;s Level Income
+                  </div>
+                  <div className="text-xl font-black text-emerald-400 mt-1">
+                    +{formatINR(levelIncomeDaily)} / day
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    {client?.isLevelIncomeUnlocked ? "Active daily payout" : "🔒 Suppressed (Account Locked)"}
+                  </div>
+                </div>
+
+                <div className={`p-4 rounded-2xl bg-[#0D131F] border shadow-lg ${
+                  client?.isLevelIncomeUnlocked ? "border-[#D4AF37]/50 shadow-[#D4AF37]/5" : "border-[#1E293B]"
+                }`}>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Accumulated Level Yield
+                  </div>
+                  <div className={`text-xl font-black mt-1 ${client?.isLevelIncomeUnlocked ? "text-[#D4AF37]" : "text-slate-500"}`}>
+                    +{formatINR(levelIncomeAccrued)}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    {client?.isLevelIncomeUnlocked
+                      ? "Full retroactive yield credited to Ready to Withdraw"
+                      : "Will be credited immediately upon unlock"}
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-[#0D131F] border border-[#1E293B] shadow-lg">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Syndicate Members
+                  </div>
+                  <div className="text-xl font-black text-white mt-1">
+                    {levelNetwork.totalMembers} Partners
+                  </div>
+                  <div className="text-[11px] text-emerald-400 mt-0.5">
+                    {levelNetwork.totalActiveMembers} with active plans
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-[#0D131F] border border-[#1E293B] shadow-lg">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Downline Active Capital
+                  </div>
+                  <div className="text-xl font-black text-white mt-1">
+                    {formatINR(levelNetwork.totalCapital)}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    Volume across 5 generations
+                  </div>
+                </div>
+              </div>
+
+              {/* 5 Generation Tier Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                {([1, 2, 3, 4, 5] as const).map((lvl) => {
+                  const stat = levelNetwork.levels[lvl];
+                  const colors = {
+                    1: { border: "border-emerald-500/40", text: "text-emerald-400", bg: "bg-emerald-500/15" },
+                    2: { border: "border-blue-500/40", text: "text-blue-400", bg: "bg-blue-500/15" },
+                    3: { border: "border-purple-500/40", text: "text-purple-400", bg: "bg-purple-500/15" },
+                    4: { border: "border-amber-500/40", text: "text-amber-400", bg: "bg-amber-500/15" },
+                    5: { border: "border-[#D4AF37]/50", text: "text-[#D4AF37]", bg: "bg-[#D4AF37]/15" },
+                  }[lvl];
+
+                  return (
+                    <div
+                      key={lvl}
+                      className={`p-3.5 rounded-2xl bg-[#0D131F] border ${colors.border} space-y-2 shadow-sm`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${colors.bg} ${colors.text}`}>
+                          Level {lvl} • {stat.levelPercent}%
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-bold">
+                          {stat.activeMembers}/{stat.totalMembers} Active
+                        </span>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-400">Accrued Cut:</div>
+                        <div className={`text-sm font-black ${client?.isLevelIncomeUnlocked ? colors.text : "text-slate-500"}`}>
+                          +{formatINR(client?.isLevelIncomeUnlocked ? stat.totalAccruedIncome : 0)}
+                        </div>
+                      </div>
+                      <div className="text-[10px] text-slate-400 flex items-center justify-between border-t border-[#1E293B] pt-1.5">
+                        <span>Daily: +{formatINR(client?.isLevelIncomeUnlocked ? stat.dailyIncome : 0)}/d</span>
+                        <span>{formatINR(stat.totalCapital)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Complete 5-Tier Syndicate Member Ledger Table */}
+              {levelNetwork.totalMembers > 0 && (
+                <div className="rounded-2xl bg-[#0D131F] border border-[#1E293B] overflow-hidden shadow-xl">
+                  <div className="p-4 border-b border-[#1E293B] flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-white text-sm">
+                        5-Tier Network Breakdown ({levelNetwork.totalMembers} Members)
+                      </h4>
+                      <p className="text-xs text-slate-400">
+                        All downline members across Levels 1–5 and their accrued payout cuts for this investor
+                      </p>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-lg bg-[#141C2E] text-slate-300 font-bold text-xs border border-[#1E293B]">
+                      {levelNetwork.totalActiveMembers} Generating Yield
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="border-b border-[#1E293B] bg-[#080C14] text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                          <th className="py-3 px-4">Tier</th>
+                          <th className="py-3 px-4">Investor</th>
+                          <th className="py-3 px-4">Sponsor</th>
+                          <th className="py-3 px-4">Assigned Plan</th>
+                          <th className="py-3 px-4">Invested Capital</th>
+                          <th className="py-3 px-4">Their Daily ROI</th>
+                          <th className="py-3 px-4">Your Daily Cut</th>
+                          <th className="py-3 px-4">Total Accrued</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#1E293B]">
+                        {([1, 2, 3, 4, 5] as const).flatMap((lvl) =>
+                          levelNetwork.levels[lvl].members.map((m) => {
+                            const badgeColor = {
+                              1: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+                              2: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+                              3: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+                              4: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+                              5: "bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30",
+                            }[lvl];
+
+                            const daysActive = m.dailyRoiAmount > 0 ? Math.round(m.yourDailyIncomeCut > 0 ? (m.status === 'active' ? (levelNetwork.levels[lvl].totalAccruedIncome / (m.yourDailyIncomeCut || 1)) : 0) : 0) : 0;
+
+                            return (
+                              <tr key={`${lvl}-${m.id}`} className="hover:bg-[#141C2E]/40 transition-colors">
+                                <td className="py-3 px-4">
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${badgeColor}`}>
+                                    L{lvl} • {levelNetwork.levels[lvl].levelPercent}%
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4">
+                                  <div className="font-bold text-white">{m.name}</div>
+                                  <div className="text-[10px] text-slate-500 font-mono">#{m.id}</div>
+                                </td>
+                                <td className="py-3 px-4 text-slate-300">
+                                  <div>{m.sponsorName || m.referredByCode || "—"}</div>
+                                </td>
+                                <td className="py-3 px-4">
+                                  <span className="text-white font-medium">{m.planName}</span>
+                                </td>
+                                <td className="py-3 px-4 text-slate-200 font-mono font-bold">
+                                  {formatINR(m.planCapital)}
+                                </td>
+                                <td className="py-3 px-4 text-slate-400 font-mono">
+                                  +{formatINR(m.dailyRoiAmount)}/d
+                                </td>
+                                <td className="py-3 px-4 text-emerald-400 font-mono font-bold">
+                                  +{formatINR(m.yourDailyIncomeCut)}/d
+                                </td>
+                                <td className="py-3 px-4 font-mono font-black text-[#D4AF37]">
+                                  {client?.isLevelIncomeUnlocked
+                                    ? `+${formatINR(m.status === 'active' && m.yourDailyIncomeCut > 0 ? Math.max(0, Math.floor((Date.now() - new Date(m.joinedDate || '2026-01-01').getTime()) / (1000 * 60 * 60 * 24))) * m.yourDailyIncomeCut : 0)}`
+                                    : "🔒 Locked"}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Referred Clients Directory Table */}
           <div className="rounded-2xl bg-[#0D131F] border border-[#1E293B] overflow-hidden shadow-xl">
