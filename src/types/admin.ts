@@ -18,6 +18,22 @@ export interface ClientPlan {
   assignedAt?: string;
 }
 
+export interface ArchivedClientPlan {
+  planInstanceId: string;
+  planId: string;
+  planName: string;
+  capitalAmount: number;
+  startDate: string;
+  archivedAt: string;
+  durationMonths: number;
+  dailyReturnPct: number;
+  monthlyReturnPct: number;
+  completedDays: number;
+  frozenAccruedYield: number;
+  status: 'revoked' | 'matured';
+  reason?: string;
+}
+
 export interface ClientProfile {
   id: string;
   clientId?: string;
@@ -34,6 +50,7 @@ export interface ClientProfile {
   assignedPlanStartDate?: string;
   assignedPlanStatus: PlanStatus;
   activePlans?: ClientPlan[];
+  archivedPlans?: ArchivedClientPlan[];
   currentMonthIndex: number;
   currentMonthWithdrawn: boolean;
   lastWithdrawalDate?: string;

@@ -839,6 +839,18 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       `Rejected withdrawal request #${wd.id} for ${wd.clientName}. Reason: ${reason}`,
     );
 
+    api
+      .updateWithdrawalStatus(
+        withdrawalId,
+        "rejected",
+        undefined,
+        reason,
+        "Chief Wealth Admin (Altaf)",
+      )
+      .catch((err) => {
+        console.error("Failed to update rejected withdrawal status on server:", err);
+      });
+
     return {
       success: true,
       message: `Withdrawal request #${wd.id} marked as rejected.`,
@@ -948,7 +960,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         (c) => c.referralCode === data.referredByCode,
       );
       if (referrer) {
-        const comm = data.autoAssign14MPlan ? (amount * 2.0) / 100 : 0;
+        const comm = data.autoAssign14MPlan ? (amount * 5.0) / 100 : 0;
         const newRef: ReferralRecord = {
           id: `ref-${Date.now().toString().slice(-4)}`,
           referrerId: referrer.id,
@@ -963,7 +975,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
             ? "INFINIX 14-Month Wealth Accelerator"
             : "Pending Plan Allocation",
           capitalAmount: data.autoAssign14MPlan ? amount : 0,
-          commissionRatePct: 2.0,
+          commissionRatePct: 5.0,
           monthlyCommissionAmount: comm,
           totalEarnedAmount: comm,
           status: data.autoAssign14MPlan ? "active" : "pending_activation",
