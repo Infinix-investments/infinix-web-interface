@@ -400,7 +400,7 @@ export function ClientDetailView({
     if (!client) return;
     if (
       confirm(
-        `Are you sure you want to revoke all active investment plans for ${client.firstName} ${client.lastName}?`,
+        `Are you sure you want to revoke all active investment plans for ${client.firstName} ${client.lastName}?\n\nSafety Guard: All accrued yield earned till date will be frozen into Archived Contracts so historical withdrawals remain balanced without creating an account deficit.`,
       )
     ) {
       const res = revokeClientPlan(client.id);
@@ -418,7 +418,7 @@ export function ClientDetailView({
     if (!client) return;
     if (
       confirm(
-        `Are you sure you want to revoke contract "${planName}" (${formatINR(capital)})? All other active plans for ${client.firstName} ${client.lastName} will continue unaffected.`,
+        `Are you sure you want to revoke contract "${planName}" (${formatINR(capital)})?\n\nSafety Guard: Yield earned till date on this contract will be frozen into Archived Contracts so past disbursements remain balanced without penalizing remaining contracts.`,
       )
     ) {
       const res = revokeClientPlanInstance(client.id, contractId);
@@ -580,16 +580,22 @@ export function ClientDetailView({
     0,
   );
 
-  // Referral direct commission total earned
-  const totalReferralBonus =
-    referralStats.totalEarnedCommissions ||
-    referralStats.monthlyCommissionYield * 5;
+  // Referral direct commission total earned (5% of active direct referee capital)
+  const totalReferralBonus = referralStats.refereeList.reduce((sum, r) => {
+    if (!r.hasActivePlan || !r.capital) return sum;
+    return sum + Math.round(Number(r.capital) * 0.05 * 100) / 100;
+  }, 0);
 
-  // Available to withdraw: Accrued Profit + Referral Bonus + Level Income - Settled Disbursed
+  // Include frozen yield from completed/revoked archived contracts (Solution A)
+  const archivedYield = Array.isArray(client?.archivedPlans)
+    ? client.archivedPlans.reduce((sum: number, p: any) => sum + (Number(p.frozenAccruedYield) || 0), 0)
+    : 0;
+
+  // Available to withdraw: Accrued Profit + Archived Yield + Referral Bonus + Level Income - Settled Disbursed
   const availableToWithdraw = Math.max(
     0,
     Math.round(
-      (totalAccruedProfit + totalReferralBonus + levelIncomeAccrued - totalDisbursedAmount) * 100,
+      (totalAccruedProfit + archivedYield + totalReferralBonus + levelIncomeAccrued - totalDisbursedAmount) * 100,
     ) / 100,
   );
 
